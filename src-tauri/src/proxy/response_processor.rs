@@ -606,8 +606,10 @@ pub fn create_logged_passthrough_stream(
     timeout_config: StreamingTimeoutConfig,
 ) -> impl Stream<Item = Result<Bytes, std::io::Error>> + Send {
     async_stream::stream! {
+        const SSE_OUTBOUND_FLUSH_THRESHOLD: usize = 256;
         let mut buffer = String::new();
         let mut utf8_remainder: Vec<u8> = Vec::new();
+        let mut outbound_buffer: Vec<u8> = Vec::new();
         let mut collector = usage_collector;
         let mut is_first_chunk = true;
 
@@ -684,14 +686,35 @@ pub fn create_logged_passthrough_stream(
                         }
                     }
 
-                    yield Ok(bytes);
+                    outbound_buffer.extend_from_slice(&bytes);
+
+                    let should_flush = outbound_buffer.len() >= SSE_OUTBOUND_FLUSH_THRESHOLD
+                        || bytes
+                            .windows(b"event: message_stop".len())
+                            .any(|w| w == b"event: message_stop")
+                        || bytes
+                            .windows(b"event: error".len())
+                            .any(|w| w == b"event: error")
+                        || bytes
+                            .windows(b"data: [DONE]".len())
+                            .any(|w| w == b"data: [DONE]");
+
+                    if should_flush && !outbound_buffer.is_empty() {
+                        yield Ok(Bytes::from(std::mem::take(&mut outbound_buffer)));
+                    }
                 }
                 Some(Err(e)) => {
+                    if !outbound_buffer.is_empty() {
+                        yield Ok(Bytes::from(std::mem::take(&mut outbound_buffer)));
+                    }
                     log::error!("[{tag}] 流错误: {e}");
                     yield Err(std::io::Error::other(e.to_string()));
                     break;
                 }
                 None => {
+                    if !outbound_buffer.is_empty() {
+                        yield Ok(Bytes::from(std::mem::take(&mut outbound_buffer)));
+                    }
                     // 流正常结束
                     break;
                 }
