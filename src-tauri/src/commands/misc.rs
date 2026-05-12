@@ -108,7 +108,6 @@ pub struct ToolVersion {
     wsl_distro: Option<String>,
 }
 
-#[cfg(not(target_os = "windows"))]
 const VALID_TOOLS: [&str; 4] = ["claude", "codex", "gemini", "opencode"];
 
 #[derive(Debug, Clone, serde::Deserialize)]

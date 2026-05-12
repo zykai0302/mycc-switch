@@ -277,6 +277,9 @@ async fn handle_claude_transform(
             .as_ref()
             .and_then(|m| m.provider_type.as_deref())
             == Some("codebuddy");
+        if is_codebuddy {
+            log::info!("[CodeBuddy-DBG] handlers.rs: applying keyword_replacement_stream for CodeBuddy provider");
+        }
         let sse_stream: Box<
             dyn futures::Stream<Item = Result<Bytes, std::io::Error>> + Send + Unpin,
         > = if is_codebuddy {

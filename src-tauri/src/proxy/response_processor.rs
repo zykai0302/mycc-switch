@@ -700,6 +700,10 @@ pub fn create_logged_passthrough_stream(
                             .any(|w| w == b"data: [DONE]");
 
                     if should_flush && !outbound_buffer.is_empty() {
+                        // CodeBuddy 调试：记录透传层实际发出的字节数和前几条 SSE 事件
+                        let dbg_preview = String::from_utf8_lossy(&outbound_buffer);
+                        let first_events: Vec<&str> = dbg_preview.split("\n\n").take(3).collect();
+                        log::info!("[CodeBuddy-DBG] response_processor FLUSH {} bytes, preview: {:?}", outbound_buffer.len(), first_events);
                         yield Ok(Bytes::from(std::mem::take(&mut outbound_buffer)));
                     }
                 }

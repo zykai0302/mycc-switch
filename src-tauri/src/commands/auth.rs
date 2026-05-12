@@ -105,7 +105,7 @@ pub async fn auth_start_login(
     github_domain: Option<String>,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<ManagedAuthDeviceCodeResponse, String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {
@@ -149,7 +149,7 @@ pub async fn auth_poll_for_account(
     github_domain: Option<String>,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<Option<ManagedAuthAccount>, String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {
@@ -226,7 +226,7 @@ pub async fn auth_list_accounts(
     auth_provider: String,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<Vec<ManagedAuthAccount>, String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {
@@ -268,7 +268,7 @@ pub async fn auth_get_status(
     auth_provider: String,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<ManagedAuthStatus, String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {
@@ -335,7 +335,7 @@ pub async fn auth_remove_account(
     account_id: String,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<(), String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {
@@ -367,7 +367,7 @@ pub async fn auth_set_default_account(
     account_id: String,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<(), String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {
@@ -401,7 +401,7 @@ pub async fn auth_logout(
     auth_provider: String,
     copilot_state: State<'_, CopilotAuthState>,
     codex_state: State<'_, CodexOAuthState>,
-    _codebuddy_state: State<'_, CodeBuddyCredentialState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
 ) -> Result<(), String> {
     let auth_provider = ensure_auth_provider(&auth_provider)?;
     match auth_provider {

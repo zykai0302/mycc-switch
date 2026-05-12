@@ -198,6 +198,8 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
 
                                 if let Ok(chunk) = serde_json::from_str::<OpenAIStreamChunk>(data) {
                                     log::debug!("[Claude/OpenRouter] <<< SSE chunk received");
+                                    // CodeBuddy 调试：记录上游原始 SSE 完整数据
+                                    log::info!("[CodeBuddy-DBG] <<< upstream OpenAI SSE: {data}");
 
                                     if message_id.is_none() && !chunk.id.is_empty() {
                                         message_id = Some(chunk.id.clone());
@@ -338,6 +340,9 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
                                                     });
                                                     let sse_data = format!("event: content_block_delta\ndata: {}\n\n",
                                                         serde_json::to_string(&event).unwrap_or_default());
+                                                    // CodeBuddy 调试：记录 text_delta 事件（截断长文本）
+                                                    let dbg_text = if content.len() > 80 { format!("{}...", &content[..80]) } else { content.clone() };
+                                                    log::info!("[CodeBuddy-DBG] streaming.rs OUT text_delta [idx={index}]: \"{dbg_text}\"");
                                                     yield Ok(Bytes::from(sse_data));
                                                 }
                                             }
