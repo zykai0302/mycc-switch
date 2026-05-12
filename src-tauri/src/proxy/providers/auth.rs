@@ -128,6 +128,14 @@ pub enum AuthStrategy {
     ///
     /// 使用动态获取的 OpenAI access_token（通过 Device Code 流程获取）
     CodexOAuth,
+
+    /// CodeBuddy 认证方式（腾讯 CodeBuddy）
+    ///
+    /// - Header: `Authorization: Bearer <access_token>`
+    /// - 附加 CodeBuddy 专用请求头（X-Conversation-ID, X-Agent-Intent 等）
+    ///
+    /// 使用凭证管理器轮换获取的 Bearer Token
+    CodeBuddy,
 }
 
 #[cfg(test)]
@@ -244,6 +252,7 @@ mod tests {
             AuthStrategy::GoogleOAuth,
             AuthStrategy::GitHubCopilot,
             AuthStrategy::CodexOAuth,
+            AuthStrategy::CodeBuddy,
         ];
 
         for (i, s1) in strategies.iter().enumerate() {

@@ -89,6 +89,7 @@ import {
   useHermesFormState,
   useCopilotAuth,
   useCodexOauth,
+  useCodeBuddyAuth,
 } from "./hooks";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useSettingsQuery } from "@/lib/query";
@@ -393,6 +394,9 @@ function ProviderFormFull({
   // Codex OAuth 认证状态（ChatGPT Plus/Pro 反代）
   const { isAuthenticated: isCodexOauthAuthenticated } = useCodexOauth();
 
+  // CodeBuddy OAuth 认证状态
+  const { isAuthenticated: isCodeBuddyAuthenticated } = useCodeBuddyAuth();
+
   // 选中的 GitHub 账号 ID（多账号支持）
   const [selectedGitHubAccountId, setSelectedGitHubAccountId] = useState<
     string | null
@@ -405,6 +409,11 @@ function ProviderFormFull({
   const [codexFastMode, setCodexFastMode] = useState<boolean>(
     () => initialData?.meta?.codexFastMode ?? false,
   );
+
+  // 选中的 CodeBuddy 凭证 ID
+  const [selectedCodeBuddyAccountId, setSelectedCodeBuddyAccountId] = useState<
+    string | null
+  >(() => resolveManagedAccountId(initialData?.meta, "codebuddy"));
 
   const {
     codexAuth,
@@ -906,6 +915,9 @@ function ProviderFormFull({
     const isCodexOauthProvider =
       templatePreset?.providerType === "codex_oauth" ||
       initialData?.meta?.providerType === "codex_oauth";
+    const isCodeBuddyProvider =
+      templatePreset?.providerType === "codebuddy" ||
+      initialData?.meta?.providerType === "codebuddy";
     if (isCopilotProvider && !isCopilotAuthenticated) {
       toast.error(
         t("copilot.loginRequired", {
@@ -918,6 +930,14 @@ function ProviderFormFull({
       toast.error(
         t("codexOauth.loginRequired", {
           defaultValue: "请先登录 ChatGPT 账号",
+        }),
+      );
+      return;
+    }
+    if (isCodeBuddyProvider && !isCodeBuddyAuthenticated) {
+      toast.error(
+        t("codebuddy.loginRequired", {
+          defaultValue: "请先登录 CodeBuddy",
         }),
       );
       return;
@@ -958,14 +978,19 @@ function ProviderFormFull({
     // cloud_provider（如 Bedrock）通过模板变量处理认证，跳过通用校验
     if (category !== "official" && category !== "cloud_provider") {
       if (appId === "claude") {
-        if (!isCodexOauthProvider && !baseUrl.trim()) {
+        if (!isCodexOauthProvider && !isCodeBuddyProvider && !baseUrl.trim()) {
           issues.push(
             t("providerForm.endpointRequired", {
               defaultValue: "非官方供应商请填写 API 端点",
             }),
           );
         }
-        if (!isCopilotProvider && !isCodexOauthProvider && !apiKey.trim()) {
+        if (
+          !isCopilotProvider &&
+          !isCodexOauthProvider &&
+          !isCodeBuddyProvider &&
+          !apiKey.trim()
+        ) {
           issues.push(
             t("providerForm.apiKeyRequired", {
               defaultValue: "非官方供应商请填写 API Key",
@@ -1024,6 +1049,9 @@ function ProviderFormFull({
     const isCodexOauthProvider =
       templatePreset?.providerType === "codex_oauth" ||
       initialData?.meta?.providerType === "codex_oauth";
+    const isCodeBuddyProvider =
+      templatePreset?.providerType === "codebuddy" ||
+      initialData?.meta?.providerType === "codebuddy";
 
     let settingsConfig: string;
 
@@ -1193,7 +1221,13 @@ function ProviderFormFull({
               authProvider: "codex_oauth",
               accountId: selectedCodexAccountId ?? undefined,
             }
-          : undefined,
+          : isCodeBuddyProvider
+            ? {
+                source: "managed_account",
+                authProvider: "codebuddy",
+                accountId: selectedCodeBuddyAccountId ?? undefined,
+              }
+            : undefined,
       // GitHub Copilot 多账号：保存关联的账号 ID
       githubAccountId:
         isCopilotProvider && selectedGitHubAccountId
@@ -1781,13 +1815,19 @@ function ProviderFormFull({
                 templatePreset?.providerType === "codex_oauth" ||
                 initialData?.meta?.providerType === "codex_oauth"
               }
+              isCodeBuddyPreset={
+                templatePreset?.providerType === "codebuddy" ||
+                initialData?.meta?.providerType === "codebuddy"
+              }
               usesOAuth={
                 templatePreset?.requiresOAuth === true ||
                 templatePreset?.providerType === "github_copilot" ||
                 initialData?.meta?.providerType === "github_copilot" ||
                 baseUrl.includes("githubcopilot.com") ||
                 templatePreset?.providerType === "codex_oauth" ||
-                initialData?.meta?.providerType === "codex_oauth"
+                initialData?.meta?.providerType === "codex_oauth" ||
+                templatePreset?.providerType === "codebuddy" ||
+                initialData?.meta?.providerType === "codebuddy"
               }
               isCopilotAuthenticated={isCopilotAuthenticated}
               selectedGitHubAccountId={selectedGitHubAccountId}
@@ -1797,6 +1837,9 @@ function ProviderFormFull({
               onCodexAccountSelect={setSelectedCodexAccountId}
               codexFastMode={codexFastMode}
               onCodexFastModeChange={setCodexFastMode}
+              isCodeBuddyAuthenticated={isCodeBuddyAuthenticated}
+              selectedCodeBuddyAccountId={selectedCodeBuddyAccountId}
+              onCodeBuddyAccountSelect={setSelectedCodeBuddyAccountId}
               templateValueEntries={templateValueEntries}
               templateValues={templateValues}
               templatePresetName={templatePreset?.name || ""}

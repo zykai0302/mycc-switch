@@ -591,20 +591,24 @@ pub fn openai_to_anthropic(body: Value) -> Result<Value, ProxyError> {
         }
     }
 
-    // 映射 finish_reason → stop_reason
+    // 映射 finish_reason → stop_reason（trim 处理上游可能包含的换行等空白字符）
     let stop_reason = choice
         .get("finish_reason")
         .and_then(|r| r.as_str())
-        .map(|r| match r {
-            "stop" => "end_turn",
-            "length" => "max_tokens",
-            "tool_calls" | "function_call" => "tool_use",
-            "content_filter" => "end_turn",
-            other => {
-                log::warn!(
-                    "[Claude/OpenAI] Unknown finish_reason in non-streaming response: {other}"
-                );
-                "end_turn"
+        .map(|r| {
+            let trimmed = r.trim();
+            match trimmed {
+                "stop" => "end_turn",
+                "length" => "max_tokens",
+                "tool_calls" | "function_call" => "tool_use",
+                "content_filter" => "end_turn",
+                "" => "end_turn",
+                other => {
+                    log::warn!(
+                        "[Claude/OpenAI] Unknown finish_reason in non-streaming response: {other:?} (raw: {r:?})"
+                    );
+                    "end_turn"
+                }
             }
         })
         .or(if has_tool_use { Some("tool_use") } else { None });

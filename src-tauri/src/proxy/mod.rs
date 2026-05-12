@@ -17,6 +17,7 @@ mod handlers;
 mod health;
 pub mod http_client;
 pub mod hyper_client;
+pub mod keyword_replacer;
 pub mod log_codes;
 pub mod model_mapper;
 pub mod provider_router;

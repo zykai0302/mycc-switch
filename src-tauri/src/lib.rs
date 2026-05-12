@@ -859,6 +859,18 @@ pub fn run() {
                 log::info!("✓ CodexOAuthManager initialized");
             }
 
+            // 初始化 CodeBuddyCredentialManager
+            {
+                use crate::proxy::providers::codebuddy_auth::CodeBuddyCredentialManager;
+                use commands::CodeBuddyCredentialState;
+                use tokio::sync::RwLock;
+
+                let db = app.state::<AppState>().db.clone();
+                let codebuddy_manager = CodeBuddyCredentialManager::new(db);
+                app.manage(CodeBuddyCredentialState(Arc::new(RwLock::new(codebuddy_manager))));
+                log::info!("✓ CodeBuddyCredentialManager initialized");
+            }
+
             // 初始化全局出站代理 HTTP 客户端
             {
                 let db = &app.state::<AppState>().db;
@@ -1340,6 +1352,16 @@ pub fn run() {
             commands::delete_daily_memory_file,
             commands::search_daily_memory_files,
             commands::open_workspace_directory,
+            // CodeBuddy OAuth commands
+            commands::codebuddy_start_auth,
+            commands::codebuddy_poll_auth,
+            commands::codebuddy_list_credentials,
+            commands::codebuddy_remove_credential,
+            commands::codebuddy_set_manual_credential,
+            commands::codebuddy_get_credential_status,
+            commands::codebuddy_toggle_auto_rotation,
+            commands::codebuddy_import_from_directory,
+            commands::codebuddy_logout,
             // lightweight mode (for testing or low-resource environments)
             commands::enter_lightweight_mode,
             commands::exit_lightweight_mode,

@@ -28,6 +28,10 @@ pub fn get_claude_api_format(provider: &Provider) -> &'static str {
         if meta.provider_type.as_deref() == Some("codex_oauth") {
             return "openai_responses";
         }
+        // CodeBuddy 使用 openai_chat 格式
+        if meta.provider_type.as_deref() == Some("codebuddy") {
+            return "openai_chat";
+        }
     }
 
     // 1) Preferred: meta.apiFormat (SSOT, never written to Claude Code config)
@@ -692,6 +696,14 @@ impl ProviderAdapter for ClaudeAdapter {
                         HeaderValue::from_str(&request_id).unwrap(),
                     ),
                 ]
+            }
+            // CodeBuddy 使用自己的 CodeBuddyAdapter::get_auth_headers()，
+            // 此分支仅在类型系统需要完整性时出现
+            AuthStrategy::CodeBuddy => {
+                vec![(
+                    HeaderName::from_static("authorization"),
+                    HeaderValue::from_str(&bearer).unwrap(),
+                )]
             }
         }
     }

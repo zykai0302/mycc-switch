@@ -93,11 +93,11 @@ winreg = "0.52"
 objc2 = "0.5"
 objc2-app-kit = { version = "0.2", features = ["NSColor"] }
 
-# Optimize release binary size to help reduce AppImage footprint
+# Optimize for maximum performance (streaming proxy needs low latency)
 [profile.release]
 codegen-units = 1
-lto = "thin"
-opt-level = "s"
+lto = "fat"
+opt-level = 3
 # 使用 unwind 以便 panic hook 能捕获 backtrace（abort 会直接终止无法捕获）
 panic = "unwind"
 strip = "symbols"

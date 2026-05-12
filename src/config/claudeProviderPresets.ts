@@ -59,7 +59,8 @@ export interface ProviderPreset {
   // 供应商类型标识（用于特殊供应商检测）
   // - "github_copilot": GitHub Copilot 供应商（需要 OAuth 认证）
   // - "codex_oauth": OpenAI Codex via ChatGPT Plus/Pro 反代（需要 OAuth 认证）
-  providerType?: "github_copilot" | "codex_oauth";
+  // - "codebuddy": CodeBuddy (Tencent) 供应商（需要 OAuth 设备流认证 + 凭证轮换）
+  providerType?: "github_copilot" | "codex_oauth" | "codebuddy";
 
   // 是否需要 OAuth 认证（而非 API Key）
   requiresOAuth?: boolean;
@@ -889,6 +890,25 @@ export const providerPresets: ProviderPreset[] = [
     iconColor: "#000000",
   },
   {
+    name: "CodeBuddy",
+    websiteUrl: "https://codebuddy.cool",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://unvcoding.copilot.qq.com",
+        ANTHROPIC_MODEL: "GLM-5.1",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "GLM-5.0",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "GLM-5.1",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "GLM-5.1",
+      },
+    },
+    category: "cn_official",
+    apiFormat: "openai_chat",
+    providerType: "codebuddy",
+    requiresOAuth: true,
+    icon: "codebuddy",
+    iconColor: "#00A67E",
+  },
+  {
     name: "LemonData",
     websiteUrl: "https://lemondata.cc",
     apiKeyUrl: "https://lemondata.cc/r/FFX1ZDUP",
@@ -958,6 +978,78 @@ export const providerPresets: ProviderPreset[] = [
     category: "cn_official",
     icon: "xiaomimimo",
     iconColor: "#000000",
+  },
+  {
+    name: "DeepSeek",
+    websiteUrl: "https://platform.deepseek.com",
+    apiKeyUrl: "https://platform.deepseek.com/api_keys",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://api.deepseek.com/anthropic",
+        ANTHROPIC_AUTH_TOKEN: "",
+        ANTHROPIC_MODEL: "deepseek-r1",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "deepseek-chat",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "deepseek-r1",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "deepseek-r1",
+      },
+    },
+    category: "cn_official",
+    icon: "deepseek",
+    iconColor: "#4D6BFE",
+  },
+  {
+    name: "Zhipu GLM",
+    websiteUrl: "https://open.bigmodel.cn",
+    apiKeyUrl: "https://open.bigmodel.cn/user/apikey",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://open.bigmodel.cn/api/anthropic",
+        ANTHROPIC_AUTH_TOKEN: "",
+        ANTHROPIC_MODEL: "GLM-4-Plus",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "GLM-4-Flash",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "GLM-4-Plus",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "GLM-4-Plus",
+      },
+    },
+    category: "cn_official",
+    icon: "zhipu",
+    iconColor: "#3B5FDB",
+  },
+  {
+    name: "Kimi",
+    websiteUrl: "https://platform.moonshot.cn",
+    apiKeyUrl: "https://platform.moonshot.cn/console/api-keys",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://api.moonshot.cn/anthropic",
+        ANTHROPIC_AUTH_TOKEN: "",
+        ANTHROPIC_MODEL: "kimi-k2.5",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "kimi-k2.5",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "kimi-k2.5",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "kimi-k2.5",
+      },
+    },
+    category: "cn_official",
+    icon: "kimi",
+    iconColor: "#000000",
+  },
+  {
+    name: "MiniMax",
+    websiteUrl: "https://platform.minimaxi.com",
+    apiKeyUrl: "https://platform.minimaxi.com/user-center/api-keys",
+    settingsConfig: {
+      env: {
+        ANTHROPIC_BASE_URL: "https://api.minimaxi.com/anthropic",
+        ANTHROPIC_AUTH_TOKEN: "",
+        ANTHROPIC_MODEL: "MiniMax-M1",
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: "MiniMax-Text-01",
+        ANTHROPIC_DEFAULT_SONNET_MODEL: "MiniMax-M1",
+        ANTHROPIC_DEFAULT_OPUS_MODEL: "MiniMax-M1",
+      },
+    },
+    category: "cn_official",
+    icon: "minimax",
+    iconColor: "#6C5CE7",
   },
   {
     name: "AWS Bedrock (AKSK)",

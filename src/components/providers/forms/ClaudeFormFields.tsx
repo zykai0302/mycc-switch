@@ -35,6 +35,7 @@ import EndpointSpeedTest from "./EndpointSpeedTest";
 import { ApiKeySection, EndpointField, ModelInputWithFetch } from "./shared";
 import { CopilotAuthSection } from "./CopilotAuthSection";
 import { CodexOAuthSection } from "./CodexOAuthSection";
+import { CodeBuddyAuthSection } from "./CodeBuddyAuthSection";
 import {
   copilotGetModels,
   copilotGetModelsForAccount,
@@ -87,6 +88,12 @@ interface ClaudeFormFieldsProps {
   onCodexAccountSelect?: (accountId: string | null) => void;
   codexFastMode?: boolean;
   onCodexFastModeChange?: (enabled: boolean) => void;
+
+  // CodeBuddy OAuth
+  isCodeBuddyPreset?: boolean;
+  isCodeBuddyAuthenticated?: boolean;
+  selectedCodeBuddyAccountId?: string | null;
+  onCodeBuddyAccountSelect?: (accountId: string | null) => void;
 
   // Template Values
   templateValueEntries: Array<[string, TemplateValueConfig]>;
@@ -156,6 +163,9 @@ export function ClaudeFormFields({
   onCodexAccountSelect,
   codexFastMode,
   onCodexFastModeChange,
+  isCodeBuddyPreset,
+  selectedCodeBuddyAccountId,
+  onCodeBuddyAccountSelect,
   templateValueEntries,
   templateValues,
   templatePresetName,
@@ -393,6 +403,14 @@ export function ClaudeFormFields({
           onAccountSelect={onCodexAccountSelect}
           fastModeEnabled={codexFastMode}
           onFastModeChange={onCodexFastModeChange}
+        />
+      )}
+
+      {/* CodeBuddy OAuth 认证 */}
+      {isCodeBuddyPreset && (
+        <CodeBuddyAuthSection
+          selectedAccountId={selectedCodeBuddyAccountId}
+          onAccountSelect={onCodeBuddyAccountSelect}
         />
       )}
 

@@ -270,6 +270,23 @@ async fn handle_claude_transform(
             Box::new(Box::pin(create_anthropic_sse_stream(stream)))
         };
 
+        // CodeBuddy 关键词替换：对流式响应中的 text_delta/thinking_delta 应用替换
+        let is_codebuddy = ctx
+            .provider
+            .meta
+            .as_ref()
+            .and_then(|m| m.provider_type.as_deref())
+            == Some("codebuddy");
+        let sse_stream: Box<
+            dyn futures::Stream<Item = Result<Bytes, std::io::Error>> + Send + Unpin,
+        > = if is_codebuddy {
+            Box::new(Box::pin(
+                super::keyword_replacer::create_keyword_replacement_stream(sse_stream),
+            ))
+        } else {
+            sse_stream
+        };
+
         // 创建使用量收集器
         let usage_collector = {
             let state = state.clone();
@@ -369,6 +386,19 @@ async fn handle_claude_transform(
         log::error!("[Claude] 转换响应失败: {e}");
         e
     })?;
+
+    // CodeBuddy 关键词替换：在格式转换后应用
+    let is_codebuddy = ctx
+        .provider
+        .meta
+        .as_ref()
+        .and_then(|m| m.provider_type.as_deref())
+        == Some("codebuddy");
+    let anthropic_response = if is_codebuddy {
+        super::keyword_replacer::apply_keyword_replacement_to_response(anthropic_response)
+    } else {
+        anthropic_response
+    };
 
     // 记录使用量
     if let Some(usage) = TokenUsage::from_claude_response(&anthropic_response) {

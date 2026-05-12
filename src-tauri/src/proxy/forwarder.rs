@@ -20,7 +20,8 @@ use super::{
     types::{CopilotOptimizerConfig, OptimizerConfig, ProxyStatus, RectifierConfig},
     ProxyError,
 };
-use crate::commands::{CodexOAuthState, CopilotAuthState};
+use crate::commands::{CodeBuddyCredentialState, CodexOAuthState, CopilotAuthState};
+use crate::proxy::providers::codebuddy_auth::CodeBuddyCredentialManager;
 use crate::proxy::providers::codex_oauth_auth::CodexOAuthManager;
 use crate::proxy::providers::copilot_auth::CopilotAuthManager;
 use crate::{app_config::AppType, provider::Provider};
@@ -126,7 +127,6 @@ impl RequestForwarder {
         providers: Vec<Provider>,
     ) -> Result<ForwardResult, ForwardError> {
         // 获取适配器
-        let adapter = get_adapter(app_type);
         let app_type_str = app_type.as_str();
 
         if providers.is_empty() {
@@ -149,6 +149,18 @@ impl RequestForwarder {
 
         // 依次尝试每个供应商
         for provider in providers.iter() {
+            // 根据 provider_type 选择适配器（CodeBuddy 等需要专用适配器）
+            let adapter: Box<dyn ProviderAdapter> =
+                if let Some(pt) = provider.meta.as_ref().and_then(|m| m.provider_type.as_deref()) {
+                    if let Ok(provider_type) = pt.parse::<super::providers::ProviderType>() {
+                        super::providers::get_adapter_for_provider_type(&provider_type)
+                    } else {
+                        get_adapter(app_type)
+                    }
+                } else {
+                    get_adapter(app_type)
+                };
+
             // 发起请求前先获取熔断器放行许可（HalfOpen 会占用探测名额）
             // 单 Provider 场景下跳过此检查，避免熔断器阻塞所有请求
             let (allowed, used_half_open_permit) = if bypass_circuit_breaker {
@@ -808,6 +820,13 @@ impl RequestForwarder {
             == Some("github_copilot")
             || base_url.contains("githubcopilot.com");
 
+        let is_codebuddy = provider
+            .meta
+            .as_ref()
+            .and_then(|m| m.provider_type.as_deref())
+            == Some("codebuddy")
+            || base_url.contains("unvcoding.copilot.qq.com");
+
         if is_copilot {
             mapped_body =
                 super::providers::copilot_model_map::apply_copilot_model_normalization(mapped_body);
@@ -1122,6 +1141,48 @@ impl RequestForwarder {
                 }
             }
 
+            // CodeBuddy 特殊处理：从 CodeBuddyCredentialManager 获取轮换凭证
+            if auth.strategy == AuthStrategy::CodeBuddy {
+                if let Some(app_handle) = &self.app_handle {
+                    let cb_state = app_handle.state::<CodeBuddyCredentialState>();
+                    let cb_manager: tokio::sync::RwLockReadGuard<'_, CodeBuddyCredentialManager> =
+                        cb_state.0.read().await;
+
+                    match cb_manager.get_next_credential().await {
+                        Some(cred) => {
+                            let mut new_auth = AuthInfo::new(cred.bearer_token.clone(), AuthStrategy::CodeBuddy);
+                            // 从 user_info 中提取 domain 和 user_id，注入到 access_token 中
+                            // 格式: "domain:preferred_username" — 供 get_auth_headers 生成 x-domain/x-user-id 头
+                            if let Ok(user_info) = serde_json::from_str::<serde_json::Value>(&cred.user_info) {
+                                let domain = user_info.get("domain")
+                                    .and_then(|d| d.as_str())
+                                    .unwrap_or("unvcoding.copilot.qq.com");
+                                let preferred_username = user_info.get("preferred_username")
+                                    .and_then(|d| d.as_str())
+                                    .unwrap_or(&cred.user_id);
+                                new_auth.access_token = Some(format!("{}:{}", domain, preferred_username));
+                            }
+                            auth = new_auth;
+                            log::debug!(
+                                "[CodeBuddy] 使用凭证: {} (id={})",
+                                cred.user_id, cred.id
+                            );
+                        }
+                        None => {
+                            log::error!("[CodeBuddy] 没有可用凭证");
+                            return Err(ProxyError::AuthError(
+                                "CodeBuddy 认证失败：没有可用凭证，请先登录".to_string(),
+                            ));
+                        }
+                    }
+                } else {
+                    log::error!("[CodeBuddy] AppHandle 不可用");
+                    return Err(ProxyError::AuthError(
+                        "CodeBuddy 认证不可用（无 AppHandle）".to_string(),
+                    ));
+                }
+            }
+
             adapter.get_auth_headers(&auth)
         } else {
             Vec::new()
@@ -1195,6 +1256,33 @@ impl RequestForwarder {
                 "x-vscode-user-agent-library-version",
                 "x-request-id",
                 "x-agent-task-id",
+            ]
+        } else {
+            &[]
+        };
+
+        // CodeBuddy 指纹头名（由 get_auth_headers 注入，需在原始头中去重）
+        let codebuddy_fingerprint_headers: &[&str] = if is_codebuddy {
+            &[
+                "user-agent",
+                "authorization",
+                "x-conversation-id",
+                "x-conversation-request-id",
+                "x-conversation-message-id",
+                "x-request-id",
+                "x-agent-intent",
+                "x-ide-type",
+                "x-ide-name",
+                "x-product",
+                "x-domain",
+                "x-user-id",
+                "x-stainless-lang",
+                "x-stainless-package-version",
+                "x-stainless-os",
+                "x-stainless-arch",
+                "x-stainless-runtime",
+                "x-stainless-runtime-version",
+                "x-stainless-retry-count",
             ]
         } else {
             &[]
@@ -1345,6 +1433,14 @@ impl RequestForwarder {
                 continue;
             }
 
+            // --- CodeBuddy 指纹头 — 跳过（由 auth_headers 提供） ---
+            if codebuddy_fingerprint_headers
+                .iter()
+                .any(|h| key_str.eq_ignore_ascii_case(h))
+            {
+                continue;
+            }
+
             // --- 默认：透传 ---
             ordered_headers.append(key.clone(), value.clone());
         }
@@ -1386,6 +1482,15 @@ impl RequestForwarder {
         for (name, value) in codex_oauth_session_headers {
             ordered_headers.insert(name, value);
         }
+
+        // CodeBuddy 强制开启流式响应
+        let filtered_body = if is_codebuddy {
+            let mut body = filtered_body;
+            body["stream"] = serde_json::json!(true);
+            body
+        } else {
+            filtered_body
+        };
 
         // 序列化请求体
         let body_bytes = serde_json::to_vec(&filtered_body)
@@ -1435,6 +1540,7 @@ impl RequestForwarder {
             provider,
             resolved_claude_api_format.as_deref(),
             is_copilot,
+            is_codebuddy,
         );
 
         // 发送请求
@@ -1913,12 +2019,13 @@ fn should_preserve_exact_header_case(
     provider: &Provider,
     resolved_claude_api_format: Option<&str>,
     is_copilot: bool,
+    is_codebuddy: bool,
 ) -> bool {
     if matches!(adapter_name, "Codex" | "Gemini") {
         return false;
     }
 
-    if is_copilot || provider.is_codex_oauth() {
+    if is_copilot || provider.is_codex_oauth() || is_codebuddy {
         return false;
     }
 
@@ -2098,19 +2205,21 @@ mod tests {
             "Claude",
             &provider,
             Some("anthropic"),
+            false,
             false
         ));
         assert!(!should_preserve_exact_header_case(
             "Claude",
             &provider,
             Some("openai_responses"),
+            false,
             false
         ));
         assert!(!should_preserve_exact_header_case(
-            "Codex", &provider, None, false
+            "Codex", &provider, None, false, false
         ));
         assert!(!should_preserve_exact_header_case(
-            "Gemini", &provider, None, false
+            "Gemini", &provider, None, false, false
         ));
     }
 
@@ -2123,13 +2232,15 @@ mod tests {
             "Claude",
             &codex_oauth,
             Some("openai_responses"),
+            false,
             false
         ));
         assert!(!should_preserve_exact_header_case(
             "Claude",
             &copilot,
             Some("openai_chat"),
-            true
+            true,
+            false
         ));
     }
 

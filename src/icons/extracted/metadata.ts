@@ -72,6 +72,13 @@ export const iconMetadata: Record<string, IconMetadata> = {
     keywords: ["anthropic"],
     defaultColor: "#D4915D",
   },
+  codebuddy: {
+    name: "codebuddy",
+    displayName: "CodeBuddy",
+    category: "ai-provider",
+    keywords: ["codebuddy", "tencent", "coding"],
+    defaultColor: "#00A67E",
+  },
   cloudflare: {
     name: "cloudflare",
     displayName: "Cloudflare",

@@ -70,6 +70,10 @@ impl Provider {
         self.meta.as_ref().and_then(|m| m.provider_type.as_deref()) == Some("codex_oauth")
     }
 
+    pub fn is_codebuddy(&self) -> bool {
+        self.meta.as_ref().and_then(|m| m.provider_type.as_deref()) == Some("codebuddy")
+    }
+
     pub fn codex_fast_mode_enabled(&self) -> bool {
         self.meta
             .as_ref()
@@ -328,6 +332,12 @@ pub struct ProviderMeta {
     /// 用于多账号支持，关联到特定的 GitHub 账号
     #[serde(rename = "githubAccountId", skip_serializing_if = "Option::is_none")]
     pub github_account_id: Option<String>,
+    /// CodeBuddy 凭证轮换次数
+    #[serde(rename = "codebuddyRotationCount", skip_serializing_if = "Option::is_none")]
+    pub codebuddy_rotation_count: Option<u32>,
+    /// 是否启用 CodeBuddy 关键词替换
+    #[serde(rename = "codebuddyKeywordReplacement", skip_serializing_if = "Option::is_none")]
+    pub codebuddy_keyword_replacement: Option<bool>,
 }
 
 impl ProviderMeta {

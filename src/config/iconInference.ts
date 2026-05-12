@@ -6,6 +6,7 @@ const iconMappings = {
   // AI 服务商
   claude: { icon: "claude", iconColor: "#D4915D" },
   anthropic: { icon: "anthropic", iconColor: "#D4915D" },
+  codebuddy: { icon: "codebuddy", iconColor: "#00A67E" },
   deepseek: { icon: "deepseek", iconColor: "#1E88E5" },
   zhipu: { icon: "zhipu", iconColor: "#0F62FE" },
   glm: { icon: "zhipu", iconColor: "#0F62FE" },

@@ -217,6 +217,14 @@ impl StreamCheckService {
 
         let adapter: Box<dyn ProviderAdapter> = if matches!(app_type, AppType::ClaudeDesktop) {
             Box::new(ClaudeAdapter::new())
+        } else if matches!(app_type, AppType::Claude) {
+            // 检查是否为 CodeBuddy 供应商，如果是则使用 CodeBuddyAdapter
+            let provider_type = crate::proxy::providers::ProviderType::from_app_type_and_config(app_type, provider);
+            if provider_type == crate::proxy::providers::ProviderType::CodeBuddy {
+                Box::new(crate::proxy::providers::CodeBuddyAdapter::new())
+            } else {
+                get_adapter(app_type)
+            }
         } else {
             get_adapter(app_type)
         };
@@ -342,13 +350,23 @@ impl StreamCheckService {
         let is_openai_chat = effective_api_format == "openai_chat";
         let is_openai_responses = effective_api_format == "openai_responses";
         let is_gemini_native = effective_api_format == "gemini_native";
-        let url = Self::resolve_claude_stream_url(
-            base,
-            auth.strategy,
-            effective_api_format,
-            is_full_url,
-            model,
-        );
+
+        // CodeBuddy 特殊处理：使用 CodeBuddyAdapter.build_url() 构建正确的 URL
+        // CodeBuddy API 路径是 /v2/plugin/chat/completions，而非标准的 /v1/chat/completions
+        let is_codebuddy = auth.strategy == AuthStrategy::CodeBuddy
+            || base.contains("unvcoding.copilot.qq.com");
+        let url = if is_codebuddy {
+            let cb_adapter = crate::proxy::providers::CodeBuddyAdapter::new();
+            cb_adapter.build_url(base, "")
+        } else {
+            Self::resolve_claude_stream_url(
+                base,
+                auth.strategy,
+                effective_api_format,
+                is_full_url,
+                model,
+            )
+        };
 
         let max_tokens = if is_openai_responses { 16 } else { 1 };
 
@@ -375,6 +393,13 @@ impl StreamCheckService {
         } else if is_gemini_native {
             anthropic_to_gemini(anthropic_body)
                 .map_err(|e| AppError::Message(format!("Failed to build test request: {e}")))?
+        } else if is_codebuddy {
+            // CodeBuddy: 先转换为 OpenAI Chat 格式，再由 CodeBuddyAdapter.normalize_request 规范化
+            let openai_body = anthropic_to_openai(anthropic_body)
+                .map_err(|e| AppError::Message(format!("Failed to build test request: {e}")))?;
+            let cb_adapter = crate::proxy::providers::CodeBuddyAdapter::new();
+            cb_adapter.transform_request(openai_body, provider)
+                .map_err(|e| AppError::Message(format!("Failed to normalize CodeBuddy request: {e}")))?
         } else if is_openai_chat {
             anthropic_to_openai(anthropic_body)
                 .map_err(|e| AppError::Message(format!("Failed to build test request: {e}")))?
@@ -427,6 +452,16 @@ impl StreamCheckService {
                     .header("accept", "text/event-stream")
                     .header("accept-encoding", "identity"),
             };
+        } else if is_codebuddy {
+            // CodeBuddy: 使用 CodeBuddyAdapter 的专用请求头
+            let cb_adapter = crate::proxy::providers::CodeBuddyAdapter::new();
+            for (name, value) in cb_adapter.get_auth_headers(auth) {
+                request_builder = request_builder.header(name, value);
+            }
+            request_builder = request_builder
+                .header("content-type", "application/json")
+                .header("accept", "text/event-stream")
+                .header("accept-encoding", "identity");
         } else if is_openai_chat || is_openai_responses {
             // OpenAI-compatible targets: Bearer auth + SSE headers only
             request_builder = request_builder

@@ -59,6 +59,31 @@ const NEWAPI_DEFAULT_MODELS: UniversalProviderModels = {
  */
 export const universalProviderPresets: UniversalProviderPreset[] = [
   {
+    name: "CodeBuddy",
+    providerType: "codebuddy",
+    defaultApps: {
+      claude: true,
+      codex: true,
+      gemini: false,
+    },
+    defaultModels: {
+      claude: {
+        model: "GLM-5.1",
+        haikuModel: "GLM-5.0",
+        sonnetModel: "GLM-5.1",
+      },
+      codex: {
+        model: "gpt-4o",
+        reasoningEffort: "high",
+      },
+    },
+    websiteUrl: "https://codebuddy.cool",
+    icon: "codebuddy",
+    iconColor: "#00A67E",
+    description:
+      "CodeBuddy (Tencent) - Claude Code compatible API with credential rotation",
+  },
+  {
     name: "NewAPI",
     providerType: "newapi",
     defaultApps: {

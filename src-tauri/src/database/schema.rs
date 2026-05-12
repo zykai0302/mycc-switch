@@ -243,6 +243,25 @@ impl Database {
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
 
+        // 19. CodeBuddy Credentials 表
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS codebuddy_credentials (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                bearer_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_in INTEGER,
+                created_at INTEGER NOT NULL,
+                user_info TEXT NOT NULL DEFAULT '{}',
+                is_expired INTEGER NOT NULL DEFAULT 0,
+                use_count INTEGER NOT NULL DEFAULT 0,
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                created_at_db INTEGER NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| AppError::Database(e.to_string()))?;
+
         // 注意：circuit_breaker_config 已合并到 proxy_config 表中
 
         // 16. Proxy Live Backup 表 (Live 配置备份)
@@ -430,6 +449,11 @@ impl Database {
                         log::info!("迁移数据库从 v9 到 v10（添加 Hermes Agent 支持）");
                         Self::migrate_v9_to_v10(conn)?;
                         Self::set_user_version(conn, 10)?;
+                    }
+                    10 => {
+                        log::info!("迁移数据库从 v10 到 v11（添加 CodeBuddy 凭证表）");
+                        Self::migrate_v10_to_v11(conn)?;
+                        Self::set_user_version(conn, 11)?;
                     }
                     _ => {
                         return Err(AppError::Database(format!(
@@ -1197,6 +1221,30 @@ impl Database {
         }
 
         log::info!("v9 -> v10 迁移完成：已添加 Hermes Agent 支持");
+        Ok(())
+    }
+
+    /// v10 -> v11 迁移：添加 CodeBuddy 凭证表
+    fn migrate_v10_to_v11(conn: &Connection) -> Result<(), AppError> {
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS codebuddy_credentials (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                bearer_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_in INTEGER,
+                created_at INTEGER NOT NULL,
+                user_info TEXT NOT NULL DEFAULT '{}',
+                is_expired INTEGER NOT NULL DEFAULT 0,
+                use_count INTEGER NOT NULL DEFAULT 0,
+                sort_index INTEGER NOT NULL DEFAULT 0,
+                created_at_db INTEGER NOT NULL
+            )",
+            [],
+        )
+        .map_err(|e| AppError::Database(format!("创建 codebuddy_credentials 表失败: {e}")))?;
+
+        log::info!("v10 -> v11 迁移完成：已添加 CodeBuddy 凭证表");
         Ok(())
     }
 

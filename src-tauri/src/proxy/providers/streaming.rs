@@ -249,7 +249,10 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
                                         }
 
                                         // 处理 reasoning（thinking）
+                                        // 跳过空/纯空白的 reasoning，避免因上游发送 reasoning_content: ""
+                                        // 而触发不必要的 thinking/text 块切换。
                                         if let Some(reasoning) = &choice.delta.reasoning {
+                                            if !reasoning.trim().is_empty() {
                                             if current_non_tool_block_type != Some("thinking") {
                                                 if let Some(index) = current_non_tool_block_index.take() {
                                                     let event = json!({
@@ -290,6 +293,7 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
                                                     serde_json::to_string(&event).unwrap_or_default());
                                                 yield Ok(Bytes::from(sse_data));
                                             }
+                                            } // !reasoning.trim().is_empty()
                                         }
 
                                         // 处理文本内容
@@ -494,7 +498,13 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
                                         // 注意：OpenRouter 某些 provider 会发送多个带 finish_reason 的 chunk
                                         // （第一个 usage 为 null，后续才补全）。此处只做缓存，不立即发送，
                                         // 等到 [DONE] 或流末尾再统一发出，确保 usage 完整且只发一次。
+                                        //
+                                        // 重要：CodeBuddy 等上游会在每个中间 chunk 发送 finish_reason: "" (空字符串)，
+                                        // 这不是真正的结束信号，必须忽略。只有非空的 finish_reason 才应被处理。
                                         if let Some(finish_reason) = &choice.finish_reason {
+                                            if finish_reason.is_empty() {
+                                                continue;
+                                            }
                                             let stop_reason = map_stop_reason(Some(finish_reason));
                                             let usage_json =
                                                 chunk_usage_json.clone().or_else(|| latest_usage.clone());
@@ -668,13 +678,15 @@ fn extract_cache_read_tokens(usage: &Usage) -> Option<u32> {
 /// 映射停止原因
 fn map_stop_reason(finish_reason: Option<&str>) -> Option<String> {
     finish_reason.map(|r| {
-        match r {
+        let trimmed = r.trim();
+        match trimmed {
             "tool_calls" | "function_call" => "tool_use",
             "stop" => "end_turn",
             "length" => "max_tokens",
             "content_filter" => "end_turn",
+            "" => "end_turn",
             other => {
-                log::warn!("[Claude/OpenRouter] Unknown finish_reason in streaming: {other}");
+                log::warn!("[Claude/OpenRouter] Unknown finish_reason in streaming: {other:?} (raw: {r:?})");
                 "end_turn"
             }
         }

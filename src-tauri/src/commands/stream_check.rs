@@ -1,8 +1,10 @@
 //! 流式健康检查命令
 
 use crate::app_config::AppType;
+use crate::commands::codebuddy::CodeBuddyCredentialState;
 use crate::commands::copilot::CopilotAuthState;
 use crate::error::AppError;
+use crate::proxy::providers::{AuthInfo, AuthStrategy};
 use crate::services::stream_check::{
     HealthStatus, StreamCheckConfig, StreamCheckResult, StreamCheckService,
 };
@@ -15,6 +17,7 @@ use tauri::State;
 pub async fn stream_check_provider(
     state: State<'_, AppState>,
     copilot_state: State<'_, CopilotAuthState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
     app_type: AppType,
     provider_id: String,
 ) -> Result<StreamCheckResult, AppError> {
@@ -25,7 +28,7 @@ pub async fn stream_check_provider(
         .get(&provider_id)
         .ok_or_else(|| AppError::Message(format!("供应商 {provider_id} 不存在")))?;
 
-    let auth_override = resolve_copilot_auth_override(provider, &copilot_state).await?;
+    let auth_override = resolve_auth_override(provider, &copilot_state, &codebuddy_state).await?;
     let base_url_override = resolve_copilot_base_url_override(provider, &copilot_state).await?;
     let claude_api_format_override = resolve_claude_api_format_override(
         &app_type,
@@ -59,6 +62,7 @@ pub async fn stream_check_provider(
 pub async fn stream_check_all_providers(
     state: State<'_, AppState>,
     copilot_state: State<'_, CopilotAuthState>,
+    codebuddy_state: State<'_, CodeBuddyCredentialState>,
     app_type: AppType,
     proxy_targets_only: bool,
 ) -> Result<Vec<(String, StreamCheckResult)>, AppError> {
@@ -88,7 +92,7 @@ pub async fn stream_check_all_providers(
             }
         }
 
-        let auth_override = resolve_copilot_auth_override(&provider, &copilot_state).await?;
+        let auth_override = resolve_auth_override(&provider, &copilot_state, &codebuddy_state).await?;
         let base_url_override =
             resolve_copilot_base_url_override(&provider, &copilot_state).await?;
         let claude_api_format_override = resolve_claude_api_format_override(
@@ -193,6 +197,67 @@ async fn resolve_copilot_auth_override(
         token,
         crate::proxy::providers::AuthStrategy::GitHubCopilot,
     )))
+}
+
+/// 统一的 auth 解析：优先 Copilot，其次 CodeBuddy
+async fn resolve_auth_override(
+    provider: &crate::provider::Provider,
+    copilot_state: &State<'_, CopilotAuthState>,
+    codebuddy_state: &State<'_, CodeBuddyCredentialState>,
+) -> Result<Option<AuthInfo>, AppError> {
+    // 先检查 Copilot
+    if is_copilot_provider(provider) {
+        return resolve_copilot_auth_override(provider, copilot_state).await;
+    }
+
+    // 检查 CodeBuddy
+    if is_codebuddy_provider(provider) {
+        let cb_manager = codebuddy_state.0.read().await;
+        match cb_manager.get_next_credential().await {
+            Some(cred) => {
+                log::info!(
+                    "[StreamCheck] CodeBuddy 使用凭证: {} (id={})",
+                    cred.user_id,
+                    cred.id
+                );
+                let mut auth = AuthInfo::new(cred.bearer_token.clone(), AuthStrategy::CodeBuddy);
+                // 注入 domain:user_id 以便 CodeBuddyAdapter 生成 x-domain 和 x-user-id 头
+                if let Some(user_info) = serde_json::from_str::<serde_json::Value>(&cred.user_info).ok() {
+                    let domain = user_info.get("domain").and_then(|d| d.as_str()).unwrap_or("default");
+                    let user_id = user_info.get("preferred_username").and_then(|d| d.as_str()).unwrap_or(&cred.user_id);
+                    auth.access_token = Some(format!("{}:{}", domain, user_id));
+                }
+                return Ok(Some(auth));
+            }
+            None => {
+                return Err(AppError::Message(
+                    "CodeBuddy 没有可用的凭证，请先登录".to_string(),
+                ));
+            }
+        }
+    }
+
+    Ok(None)
+}
+
+fn is_codebuddy_provider(provider: &crate::provider::Provider) -> bool {
+    provider
+        .meta
+        .as_ref()
+        .and_then(|meta| meta.provider_type.as_deref())
+        == Some("codebuddy")
+        || provider
+            .settings_config
+            .pointer("/env/ANTHROPIC_BASE_URL")
+            .and_then(|value| value.as_str())
+            .map(|url| url.contains("unvcoding.copilot.qq.com"))
+            .unwrap_or(false)
+        || provider
+            .settings_config
+            .get("base_url")
+            .and_then(|value| value.as_str())
+            .map(|url| url.contains("unvcoding.copilot.qq.com"))
+            .unwrap_or(false)
 }
 
 async fn resolve_copilot_base_url_override(
