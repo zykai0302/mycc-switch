@@ -346,10 +346,15 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
                                                     yield Ok(Bytes::from(sse_data));
                                                 }
                                             }
+                                            } // else (non-empty tool_calls)
                                         }
 
-                                        // 处理工具调用
+                                        // 处理工具调用（跳过空数组，CodeBuddy/Gitee 等上游会在每个 chunk 带 tool_calls:[]）
                                         if let Some(tool_calls) = &choice.delta.tool_calls {
+                                            if tool_calls.is_empty() {
+                                                // 空数组不是真正的工具调用，跳过以避免关闭当前 text block
+                                                // log::debug!("[Claude/OpenRouter] <<< Skipping empty tool_calls array");
+                                            } else {
                                             if let Some(index) = current_non_tool_block_index.take() {
                                                 let event = json!({
                                                     "type": "content_block_stop",
@@ -497,6 +502,7 @@ pub fn create_anthropic_sse_stream<E: std::error::Error + Send + 'static>(
                                                     yield Ok(Bytes::from(sse_data));
                                                 }
                                             }
+                                            } // else (non-empty tool_calls)
                                         }
 
                                         // 处理 finish_reason。
