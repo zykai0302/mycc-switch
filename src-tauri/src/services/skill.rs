@@ -755,7 +755,7 @@ impl SkillService {
 
             // 下载仓库
             let (temp_dir, used_branch) = timeout(
-                std::time::Duration::from_secs(60),
+                std::time::Duration::from_secs(120),
                 self.download_repo(&repo),
             )
             .await
@@ -765,7 +765,7 @@ impl SkillService {
                     &[
                         ("owner", &repo.owner),
                         ("name", &repo.name),
-                        ("timeout", "60")
+                        ("timeout", "120")
                     ],
                     Some("checkNetwork"),
                 ))
@@ -1018,7 +1018,7 @@ impl SkillService {
 
             // 下载仓库 ZIP
             let (temp_dir, _used_branch) = match timeout(
-                std::time::Duration::from_secs(60),
+                std::time::Duration::from_secs(120),
                 self.download_repo(&repo),
             )
             .await
@@ -1135,14 +1135,14 @@ impl SkillService {
 
         // 下载仓库
         let (temp_dir, used_branch) = timeout(
-            std::time::Duration::from_secs(60),
+            std::time::Duration::from_secs(120),
             self.download_repo(&repo),
         )
         .await
         .map_err(|_| {
             anyhow!(format_skill_error(
                 "DOWNLOAD_TIMEOUT",
-                &[("owner", &owner), ("name", &name), ("timeout", "60")],
+                &[("owner", &owner), ("name", &name), ("timeout", "120")],
                 Some("checkNetwork"),
             ))
         })??;
@@ -1979,7 +1979,7 @@ impl SkillService {
     /// 从仓库获取技能列表
     async fn fetch_repo_skills(&self, repo: &SkillRepo) -> Result<Vec<DiscoverableSkill>> {
         let (temp_dir, resolved_branch) =
-            timeout(std::time::Duration::from_secs(60), self.download_repo(repo))
+            timeout(std::time::Duration::from_secs(120), self.download_repo(repo))
                 .await
                 .map_err(|_| {
                     anyhow!(format_skill_error(
@@ -1987,7 +1987,7 @@ impl SkillService {
                         &[
                             ("owner", &repo.owner),
                             ("name", &repo.name),
-                            ("timeout", "60")
+                            ("timeout", "120")
                         ],
                         Some("checkNetwork"),
                     ))
