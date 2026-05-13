@@ -54,8 +54,25 @@ export function RepoManagerPanel({
 
   const parseRepoUrl = (
     url: string,
-  ): { owner: string; name: string } | null => {
+  ): { owner: string; name: string; platform?: "github" | "gitlab"; baseUrl?: string } | null => {
     let cleaned = url.trim();
+
+    // 检测 GitLab URL（非 github.com 的 HTTP URL，至少两段路径）
+    const gitlabMatch = cleaned.match(
+      /^(https?:\/\/(?!github\.com)[^/]+)\/(.+?)(?:\.git)?$/
+    );
+    if (gitlabMatch) {
+      const baseUrl = gitlabMatch[1];
+      const repoPath = gitlabMatch[2];
+      const parts = repoPath.split("/");
+      if (parts.length >= 2) {
+        const name = parts[parts.length - 1];
+        const owner = parts.slice(0, parts.length - 1).join("/");
+        return { owner, name, platform: "gitlab", baseUrl };
+      }
+    }
+
+    // GitHub 格式
     cleaned = cleaned.replace(/^https?:\/\/github\.com\//, "");
     cleaned = cleaned.replace(/\.git$/, "");
 
@@ -82,6 +99,8 @@ export function RepoManagerPanel({
         name: parsed.name,
         branch: branch || "main",
         enabled: true,
+        platform: parsed.platform,
+        baseUrl: parsed.baseUrl,
       });
 
       setRepoUrl("");
@@ -91,10 +110,15 @@ export function RepoManagerPanel({
     }
   };
 
-  const handleOpenRepo = async (owner: string, name: string) => {
+  const handleOpenRepo = async (repo: SkillRepo) => {
     try {
-      const base = settings?.githubMirrorUrl?.trim().replace(/\/+$/, "") || "https://github.com";
-      await settingsApi.openExternal(`${base}/${owner}/${name}`);
+      let base: string;
+      if (repo.platform === "gitlab") {
+        base = repo.baseUrl || "https://gitlab.com";
+      } else {
+        base = settings?.githubMirrorUrl?.trim().replace(/\/+$/, "") || "https://github.com";
+      }
+      await settingsApi.openExternal(`${base}/${repo.owner}/${repo.name}`);
     } catch (error) {
       console.error("Failed to open URL:", error);
     }
@@ -202,6 +226,9 @@ export function RepoManagerPanel({
                   <div className="mt-1 text-xs text-muted-foreground">
                     {t("skills.repo.branch")}: {repo.branch || "main"}
                     <span className="ml-3 inline-flex items-center rounded-full border border-border-default px-2 py-0.5 text-[11px]">
+                      {repo.platform === "gitlab" ? "GitLab" : "GitHub"}
+                    </span>
+                    <span className="ml-3 inline-flex items-center rounded-full border border-border-default px-2 py-0.5 text-[11px]">
                       {t("skills.repo.skillCount", {
                         count: getSkillCount(repo),
                       })}
@@ -213,7 +240,7 @@ export function RepoManagerPanel({
                     variant="ghost"
                     size="icon"
                     type="button"
-                    onClick={() => handleOpenRepo(repo.owner, repo.name)}
+                    onClick={() => handleOpenRepo(repo)}
                     title={t("common.view", { defaultValue: "查看" })}
                     className="hover:bg-black/5 dark:hover:bg-white/5"
                   >

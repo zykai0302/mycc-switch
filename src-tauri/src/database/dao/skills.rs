@@ -9,7 +9,7 @@
 use crate::app_config::{InstalledSkill, SkillApps};
 use crate::database::{lock_conn, Database};
 use crate::error::AppError;
-use crate::services::skill::SkillRepo;
+use crate::services::skill::{RepoPlatform, SkillRepo};
 use indexmap::IndexMap;
 use rusqlite::params;
 
@@ -194,7 +194,7 @@ impl Database {
         let conn = lock_conn!(self.conn);
         let mut stmt = conn
             .prepare(
-                "SELECT owner, name, branch, enabled FROM skill_repos ORDER BY owner ASC, name ASC",
+                "SELECT owner, name, branch, enabled, platform, base_url FROM skill_repos ORDER BY owner ASC, name ASC",
             )
             .map_err(|e| AppError::Database(e.to_string()))?;
 
@@ -205,6 +205,8 @@ impl Database {
                     name: row.get(1)?,
                     branch: row.get(2)?,
                     enabled: row.get(3)?,
+                    platform: row.get::<_, String>(4).map(|s| RepoPlatform::from_str(&s)).unwrap_or_default(),
+                    base_url: row.get(5)?,
                 })
             })
             .map_err(|e| AppError::Database(e.to_string()))?;
@@ -220,8 +222,8 @@ impl Database {
     pub fn save_skill_repo(&self, repo: &SkillRepo) -> Result<(), AppError> {
         let conn = lock_conn!(self.conn);
         conn.execute(
-            "INSERT OR REPLACE INTO skill_repos (owner, name, branch, enabled) VALUES (?1, ?2, ?3, ?4)",
-            params![repo.owner, repo.name, repo.branch, repo.enabled],
+            "INSERT OR REPLACE INTO skill_repos (owner, name, branch, enabled, platform, base_url) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![repo.owner, repo.name, repo.branch, repo.enabled, repo.platform.as_str(), repo.base_url],
         )
         .map_err(|e| AppError::Database(e.to_string()))?;
         Ok(())

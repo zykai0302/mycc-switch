@@ -133,6 +133,8 @@ export interface SkillRepo {
   name: string;
   branch: string;
   enabled: boolean;
+  platform?: "github" | "gitlab";
+  baseUrl?: string;
 }
 
 // ========== API ==========

@@ -97,10 +97,42 @@ pub struct Skill {
     pub repo_branch: Option<String>,
 }
 
+/// 仓库平台类型
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RepoPlatform {
+    /// GitHub 仓库
+    GitHub,
+    /// GitLab 仓库（自托管或 gitlab.com）
+    GitLab,
+}
+
+impl Default for RepoPlatform {
+    fn default() -> Self {
+        Self::GitHub
+    }
+}
+
+impl RepoPlatform {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::GitHub => "github",
+            Self::GitLab => "gitlab",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "gitlab" => Self::GitLab,
+            _ => Self::GitHub,
+        }
+    }
+}
+
 /// 仓库配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillRepo {
-    /// GitHub 用户/组织名
+    /// 用户/组织名
     pub owner: String,
     /// 仓库名称
     pub name: String,
@@ -108,6 +140,13 @@ pub struct SkillRepo {
     pub branch: String,
     /// 是否启用
     pub enabled: bool,
+    /// 平台类型（github / gitlab）
+    #[serde(default)]
+    pub platform: RepoPlatform,
+    /// 自定义基础 URL（GitLab 自托管实例使用，如 http://igcode.uniview.com）
+    /// 为空时 GitHub 使用镜像站或 https://github.com，GitLab 使用 https://gitlab.com
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_url: Option<String>,
 }
 
 /// 技能安装状态（旧版兼容）
@@ -139,24 +178,32 @@ impl Default for SkillStore {
                     name: "skills".to_string(),
                     branch: "main".to_string(),
                     enabled: true,
+                    platform: RepoPlatform::GitHub,
+                    base_url: None,
                 },
                 SkillRepo {
                     owner: "ComposioHQ".to_string(),
                     name: "awesome-claude-skills".to_string(),
                     branch: "master".to_string(),
                     enabled: true,
+                    platform: RepoPlatform::GitHub,
+                    base_url: None,
                 },
                 SkillRepo {
                     owner: "cexll".to_string(),
                     name: "myclaude".to_string(),
                     branch: "master".to_string(),
                     enabled: true,
+                    platform: RepoPlatform::GitHub,
+                    base_url: None,
                 },
                 SkillRepo {
                     owner: "JimLiu".to_string(),
                     name: "baoyu-skills".to_string(),
                     branch: "main".to_string(),
                     enabled: true,
+                    platform: RepoPlatform::GitHub,
+                    base_url: None,
                 },
             ],
         }
@@ -457,10 +504,41 @@ impl SkillService {
             .unwrap_or_else(|| "https://github.com".to_string())
     }
 
+    /// 获取仓库的基础 URL（GitHub 走镜像站，GitLab 使用 base_url 或默认）
+    fn repo_base_url(repo: &SkillRepo) -> String {
+        match repo.platform {
+            RepoPlatform::GitHub => Self::github_base_url(),
+            RepoPlatform::GitLab => repo
+                .base_url
+                .as_ref()
+                .map(|u| u.trim_end_matches('/').to_string())
+                .unwrap_or_else(|| "https://gitlab.com".to_string()),
+        }
+    }
+
     /// 构建 Skill 文档 URL（指向仓库中的 SKILL.md 文件）
-    fn build_skill_doc_url(owner: &str, repo: &str, branch: &str, doc_path: &str) -> String {
-        let base = Self::github_base_url();
-        format!("{base}/{owner}/{repo}/blob/{branch}/{doc_path}")
+    fn build_skill_doc_url(
+        owner: &str,
+        repo_name: &str,
+        branch: &str,
+        doc_path: &str,
+        platform: &RepoPlatform,
+        base_url: Option<&str>,
+    ) -> String {
+        let base = match platform {
+            RepoPlatform::GitHub => Self::github_base_url(),
+            RepoPlatform::GitLab => base_url
+                .map(|u| u.trim_end_matches('/').to_string())
+                .unwrap_or_else(|| "https://gitlab.com".to_string()),
+        };
+        match platform {
+            RepoPlatform::GitHub => {
+                format!("{base}/{owner}/{repo_name}/blob/{branch}/{doc_path}")
+            }
+            RepoPlatform::GitLab => {
+                format!("{base}/{owner}/{repo_name}/-/blob/{branch}/{doc_path}")
+            }
+        }
     }
 
     /// 从旧 readme_url 中提取仓库内文档路径，兼容 `blob`/`tree` 两种格式
@@ -659,12 +737,21 @@ impl SkillService {
 
         // 如果已存在则跳过下载
         if !dest.exists() {
-            let repo = SkillRepo {
+            // 从数据库查找完整的仓库信息以获取 platform 和 base_url
+            let db_repo = db
+                .get_skill_repos()
+                .ok()
+                .and_then(|repos| {
+                    repos.into_iter().find(|r| r.owner == skill.repo_owner && r.name == skill.repo_name)
+                });
+            let repo = db_repo.unwrap_or(SkillRepo {
                 owner: skill.repo_owner.clone(),
                 name: skill.repo_name.clone(),
                 branch: skill.repo_branch.clone(),
                 enabled: true,
-            };
+                platform: RepoPlatform::GitHub,
+                base_url: None,
+            });
 
             // 下载仓库
             let (temp_dir, used_branch) = timeout(
@@ -742,11 +829,21 @@ impl SkillService {
             })
             .unwrap_or_else(|| format!("{}/SKILL.md", skill.directory.trim_end_matches('/')));
 
+        let (platform, base_url) = db
+            .get_skill_repos()
+            .ok()
+            .and_then(|repos| {
+                repos.into_iter().find(|r| r.owner == skill.repo_owner && r.name == skill.repo_name)
+            })
+            .map(|r| (r.platform, r.base_url))
+            .unwrap_or((RepoPlatform::GitHub, None));
         let readme_url = Some(Self::build_skill_doc_url(
             &skill.repo_owner,
             &skill.repo_name,
             &repo_branch,
             &doc_path,
+            &platform,
+            base_url.as_deref(),
         ));
 
         // 创建 InstalledSkill 记录
@@ -915,6 +1012,8 @@ impl SkillService {
                 name: name.clone(),
                 branch: branch.clone(),
                 enabled: true,
+                platform: RepoPlatform::GitHub,
+                base_url: None,
             };
 
             // 下载仓库 ZIP
@@ -1017,12 +1116,20 @@ impl SkillService {
             _ => return Err(anyhow!("Cannot update local skill: {skill_id}")),
         };
 
-        let repo = SkillRepo {
-            owner: owner.clone(),
-            name: name.clone(),
-            branch: branch.clone(),
-            enabled: true,
-        };
+        let repo = db
+            .get_skill_repos()
+            .ok()
+            .and_then(|repos| {
+                repos.into_iter().find(|r| r.owner == owner && r.name == name)
+            })
+            .unwrap_or_else(|| SkillRepo {
+                owner: owner.clone(),
+                name: name.clone(),
+                branch: branch.clone(),
+                enabled: true,
+                platform: RepoPlatform::GitHub,
+                base_url: None,
+            });
 
         let ssot_dir = Self::get_ssot_dir()?;
 
@@ -1097,6 +1204,8 @@ impl SkillService {
             &name,
             &used_branch,
             &doc_path,
+            &repo.platform,
+            repo.base_url.as_deref(),
         ));
 
         let updated_skill = InstalledSkill {
@@ -1963,6 +2072,8 @@ impl SkillService {
                 &repo.name,
                 &repo.branch,
                 doc_path,
+                &repo.platform,
+                repo.base_url.as_deref(),
             )),
             repo_owner: repo.owner.clone(),
             repo_name: repo.name.clone(),
@@ -2170,12 +2281,18 @@ impl SkillService {
         }
 
         let mut last_error = None;
-        let base = Self::github_base_url();
+        let base = Self::repo_base_url(repo);
         for branch in branches {
-            let url = format!(
-                "{}/{}/{}/archive/refs/heads/{}.zip",
-                base, repo.owner, repo.name, branch
-            );
+            let url = match repo.platform {
+                RepoPlatform::GitHub => format!(
+                    "{}/{}/{}/archive/refs/heads/{}.zip",
+                    base, repo.owner, repo.name, branch
+                ),
+                RepoPlatform::GitLab => format!(
+                    "{}/{}/{}/-/archive/{}/{}-{}.zip",
+                    base, repo.owner, repo.name, branch, repo.name, branch
+                ),
+            };
 
             match self.download_and_extract(&url, &temp_path).await {
                 Ok(_) => {
@@ -2834,6 +2951,8 @@ fn build_repo_info_from_lock(
                 &info.repo,
                 &url_branch,
                 doc_path,
+                &RepoPlatform::GitHub,
+                None,
             ));
             (
                 format!("{}/{}:{dir_name}", info.owner, info.repo),
@@ -2871,6 +2990,8 @@ fn save_repos_from_lock(
                     // 未知分支时使用 HEAD 语义，后续下载会回退到 main/master。
                     branch: info.branch.clone().unwrap_or_else(|| "HEAD".to_string()),
                     enabled: true,
+                    platform: RepoPlatform::GitHub,
+                    base_url: None,
                 };
                 if let Err(e) = db.save_skill_repo(&skill_repo) {
                     log::warn!("保存 skill 仓库 {}/{} 失败: {}", info.owner, info.repo, e);

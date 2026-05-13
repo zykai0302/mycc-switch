@@ -463,6 +463,11 @@ impl Database {
                         Self::migrate_v11_to_v12(conn)?;
                         Self::set_user_version(conn, 12)?;
                     }
+                    12 => {
+                        log::info!("迁移数据库从 v12 到 v13（Skill 仓库添加 platform 和 base_url 列）");
+                        Self::migrate_v12_to_v13(conn)?;
+                        Self::set_user_version(conn, 13)?;
+                    }
                     _ => {
                         return Err(AppError::Database(format!(
                             "未知的数据库版本 {version}，无法迁移到 {SCHEMA_VERSION}"
@@ -1268,6 +1273,20 @@ impl Database {
         Self::add_column_if_missing(conn, "mcp_servers", "enabled_lingma", "BOOLEAN NOT NULL DEFAULT 0")?;
 
         log::info!("v11 -> v12 迁移完成：已添加 CodeBuddy/Lingma 启用列");
+        Ok(())
+    }
+
+    /// v12 -> v13 迁移：Skill 仓库添加 platform 和 base_url 列
+    fn migrate_v12_to_v13(conn: &Connection) -> Result<(), AppError> {
+        Self::add_column_if_missing(
+            conn,
+            "skill_repos",
+            "platform",
+            "TEXT NOT NULL DEFAULT 'github'",
+        )?;
+        Self::add_column_if_missing(conn, "skill_repos", "base_url", "TEXT")?;
+
+        log::info!("v12 -> v13 迁移完成：已添加 platform 和 base_url 列");
         Ok(())
     }
 
