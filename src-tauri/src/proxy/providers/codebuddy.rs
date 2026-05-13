@@ -252,11 +252,11 @@ impl ProviderAdapter for CodeBuddyAdapter {
         use http::{HeaderName, HeaderValue};
 
         let conversation_id = uuid::Uuid::new_v4().to_string();
-        // 与 codebuddy2api 一致: X-Request-ID 和 X-Conversation-Message-ID 使用无横线 UUID
         let request_id = uuid::Uuid::new_v4().to_string().replace('-', "");
         let message_id = uuid::Uuid::new_v4().to_string().replace('-', "");
-        // 与 codebuddy2api 一致: X-Conversation-Request-ID 使用 secrets.token_hex(16) = 32位hex
         let conv_request_id = uuid::Uuid::new_v4().to_string().replace('-', "");
+        // Session ID: 去横线的 UUID，与官方插件 ir.sessionId.replace(/-/g,"") 一致
+        let session_id = uuid::Uuid::new_v4().to_string().replace('-', "");
 
         let mut headers = vec![
             (
@@ -280,49 +280,51 @@ impl ProviderAdapter for CodeBuddyAdapter {
                 HeaderValue::from_str(&request_id).unwrap(),
             ),
             (
+                HeaderName::from_static("x-session-id"),
+                HeaderValue::from_str(&session_id).unwrap(),
+            ),
+            (
                 HeaderName::from_static("x-agent-intent"),
                 HeaderValue::from_static("craft"),
             ),
+            // 与官方插件 CustomHeadersHttpProxyInterceptor 一致
             (
                 HeaderName::from_static("x-ide-type"),
-                HeaderValue::from_static("CLI"),
+                HeaderValue::from_static("VSCode"),
             ),
             (
                 HeaderName::from_static("x-ide-name"),
-                HeaderValue::from_static("CLI"),
+                HeaderValue::from_static("VSCode"),
             ),
             (
+                HeaderName::from_static("x-ide-version"),
+                HeaderValue::from_static("1.96.0"),
+            ),
+            // 与官方插件 product.json productName 一致
+            (
                 HeaderName::from_static("x-product"),
-                HeaderValue::from_static("SaaS"),
+                HeaderValue::from_static("unvcoding"),
+            ),
+            (
+                HeaderName::from_static("x-product-version"),
+                HeaderValue::from_static("4.2.17163875"),
+            ),
+            // 与官方插件 buildAuthHeaders 一致
+            (
+                HeaderName::from_static("x-domain"),
+                HeaderValue::from_static("unvcoding.copilot.qq.com"),
             ),
             (
                 HeaderName::from_static("user-agent"),
-                HeaderValue::from_static("CLI/1.0.7 CodeBuddy/1.0.7"),
+                HeaderValue::from_static("CodeBuddyIDE/4.2.17163875"),
             ),
         ];
 
-        // Stainless SDK 头 — 与 codebuddy2api Python 客户端保持一致
-        let stainless_headers = [
-            ("x-stainless-lang", "js"),
-            ("x-stainless-package-version", "5.10.1"),
-            ("x-stainless-os", "Windows"),
-            ("x-stainless-arch", "x64"),
-            ("x-stainless-runtime", "node"),
-            ("x-stainless-runtime-version", "v22.13.1"),
-            ("x-stainless-retry-count", "0"),
-        ];
-
-        for (name, value) in stainless_headers {
-            headers.push((
-                HeaderName::from_static(name),
-                HeaderValue::from_static(value),
-            ));
-        }
-
-        // X-Domain: 始终设为 CodeBuddy 主机名（与 codebuddy2api 一致）
+        // X-Request-Trace-Id: 与官方插件 CustomHeadersHttpProxyInterceptor 一致
+        let trace_id = uuid::Uuid::new_v4().to_string();
         headers.push((
-            HeaderName::from_static("x-domain"),
-            HeaderValue::from_static("unvcoding.copilot.qq.com"),
+            HeaderName::from_static("x-request-trace-id"),
+            HeaderValue::from_str(&trace_id).unwrap(),
         ));
 
         // X-User-Id: 优先从凭证中提取，否则使用默认值
@@ -551,5 +553,63 @@ mod tests {
         let assistant_msg = &messages[1];
         assert_eq!(assistant_msg["tool_calls"][0]["id"], "call_abc123");
         assert_eq!(assistant_msg["tool_calls"][1]["id"], "call_xyz789");
+    }
+
+    #[test]
+    fn test_get_auth_headers_includes_all_required_headers() {
+        use super::super::{AuthInfo, AuthStrategy, ProviderAdapter};
+
+        let adapter = CodeBuddyAdapter::new();
+        let auth = AuthInfo::new("test_token".to_string(), AuthStrategy::CodeBuddy);
+        let headers = adapter.get_auth_headers(&auth);
+
+        let header_names: Vec<String> = headers.iter().map(|(n, _)| n.to_string()).collect();
+
+        // 必须存在的头部
+        let required = [
+            "x-conversation-id",
+            "x-conversation-request-id",
+            "x-conversation-message-id",
+            "x-request-id",
+            "x-session-id",
+            "x-agent-intent",
+            "x-ide-type",
+            "x-ide-name",
+            "x-ide-version",
+            "x-product",
+            "x-product-version",
+            "x-domain",
+            "x-request-trace-id",
+            "x-user-id",
+            "authorization",
+        ];
+
+        for req in &required {
+            assert!(
+                header_names.iter().any(|n| n.eq_ignore_ascii_case(req)),
+                "Missing required header: {req}"
+            );
+        }
+
+        // 验证关键头部值
+        let get_value = |name: &str| -> Option<String> {
+            headers
+                .iter()
+                .find(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+                .and_then(|(_, v)| v.to_str().ok())
+                .map(|s| s.to_string())
+        };
+
+        assert_eq!(get_value("x-ide-type").as_deref(), Some("VSCode"));
+        assert_eq!(get_value("x-ide-name").as_deref(), Some("VSCode"));
+        assert_eq!(get_value("x-product").as_deref(), Some("unvcoding"));
+        assert_eq!(get_value("x-domain").as_deref(), Some("unvcoding.copilot.qq.com"));
+        assert!(get_value("user-agent").unwrap().starts_with("CodeBuddyIDE/"));
+
+        // 不应存在 stainless 头（已移除）
+        assert!(
+            !header_names.iter().any(|n| n.contains("stainless")),
+            "Stainless headers should have been removed"
+        );
     }
 }

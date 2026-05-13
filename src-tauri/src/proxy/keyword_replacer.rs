@@ -134,7 +134,6 @@ pub fn create_keyword_replacement_stream<E: std::error::Error + Send + 'static>(
 ) -> impl Stream<Item = Result<Bytes, std::io::Error>> + Send {
     async_stream::stream! {
         let mut stream = Box::pin(stream).peekable();
-        let mut event_counter: u64 = 0;
 
         while let Some(item) = stream.next().await {
             let bytes = match item {
@@ -146,10 +145,6 @@ pub fn create_keyword_replacement_stream<E: std::error::Error + Send + 'static>(
             };
 
             let data = String::from_utf8_lossy(&bytes);
-            event_counter += 1;
-
-            // CodeBuddy 调试：记录 keyword_replacer 收到的上游 SSE 事件
-            log::info!("[CodeBuddy-DBG] keyword_replacer IN  [#{event_counter}] {} bytes: {}", bytes.len(), data.trim_end());
 
             // Check if this SSE data line contains events that need processing
             let needs_keyword_replace = data.contains("\"text_delta\"")
@@ -157,20 +152,14 @@ pub fn create_keyword_replacement_stream<E: std::error::Error + Send + 'static>(
             let needs_tool_id_convert = data.contains("\"tool_use\"") && data.contains("tooluse_");
 
             if !needs_keyword_replace && !needs_tool_id_convert {
-                // CodeBuddy 调试：记录 keyword_replacer 透传的事件
-                log::info!("[CodeBuddy-DBG] keyword_replacer OUT [#{event_counter}] passthrough (no change needed)");
                 yield Ok(bytes);
                 continue;
             }
 
             // Try to parse and replace
             if let Some(replaced) = try_replace_in_sse_data(&data) {
-                // CodeBuddy 调试：记录替换后的输出
-                log::info!("[CodeBuddy-DBG] keyword_replacer OUT [#{event_counter}] replaced: {}", replaced.trim_end());
                 yield Ok(Bytes::from(replaced));
             } else {
-                // CodeBuddy 调试：记录未替换的输出
-                log::info!("[CodeBuddy-DBG] keyword_replacer OUT [#{event_counter}] unchanged (parse ok, no match)");
                 yield Ok(bytes);
             }
         }

@@ -140,8 +140,11 @@ fn auth_start_headers() -> Vec<(&'static str, &'static str)> {
         ("X-No-User-Id", "true"),
         ("X-No-Enterprise-Id", "true"),
         ("X-No-Department-Info", "true"),
-        ("X-Product", "SaaS"),
-        ("User-Agent", "CLI/1.0.8 CodeBuddy/1.0.8"),
+        ("X-Product", "unvcoding"),
+        ("X-IDE-Type", "VSCode"),
+        ("X-IDE-Name", "VSCode"),
+        ("X-Domain", "unvcoding.copilot.qq.com"),
+        ("User-Agent", "CodeBuddyIDE/4.2.17163875"),
     ]
 }
 
@@ -156,8 +159,11 @@ fn auth_poll_headers() -> Vec<(&'static str, String)> {
         ("X-No-User-Id", "true".to_string()),
         ("X-No-Enterprise-Id", "true".to_string()),
         ("X-No-Department-Info", "true".to_string()),
-        ("X-Product", "SaaS".to_string()),
-        ("User-Agent", "CLI/1.0.8 CodeBuddy/1.0.8".to_string()),
+        ("X-Product", "unvcoding".to_string()),
+        ("X-IDE-Type", "VSCode".to_string()),
+        ("X-IDE-Name", "VSCode".to_string()),
+        ("X-Domain", "unvcoding.copilot.qq.com".to_string()),
+        ("User-Agent", "CodeBuddyIDE/4.2.17163875".to_string()),
         ("b3", format!("{trace_id}-{span_id}-1")),
         ("X-B3-TraceId", trace_id.clone()),
         ("X-B3-ParentSpanId", trace_id),
@@ -185,7 +191,7 @@ pub async fn start_device_flow(
 ) -> Result<CodeBuddyAuthStartResponse, CodeBuddyOAuthError> {
     let url_base = base_url.unwrap_or(CODEBUDDY_BASE_URL);
     let nonce = random_hex(16);
-    let url = format!("{url_base}{AUTH_STATE_ENDPOINT}?platform=CLI&nonce={nonce}");
+    let url = format!("{url_base}{AUTH_STATE_ENDPOINT}?platform=VSCode&nonce={nonce}");
 
     let client = Client::new();
     let headers = auth_start_headers();

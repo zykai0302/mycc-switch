@@ -1270,19 +1270,16 @@ impl RequestForwarder {
                 "x-conversation-request-id",
                 "x-conversation-message-id",
                 "x-request-id",
+                "x-session-id",
                 "x-agent-intent",
                 "x-ide-type",
                 "x-ide-name",
+                "x-ide-version",
                 "x-product",
+                "x-product-version",
                 "x-domain",
                 "x-user-id",
-                "x-stainless-lang",
-                "x-stainless-package-version",
-                "x-stainless-os",
-                "x-stainless-arch",
-                "x-stainless-runtime",
-                "x-stainless-runtime-version",
-                "x-stainless-retry-count",
+                "x-request-trace-id",
             ]
         } else {
             &[]
