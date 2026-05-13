@@ -248,7 +248,7 @@ impl StreamCheckService {
         let test_prompt = &config.test_prompt;
 
         let result = match app_type {
-            AppType::Claude | AppType::ClaudeDesktop => {
+            AppType::Claude | AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
                 Self::check_claude_stream(
                     &client,
                     &base_url,
@@ -1400,7 +1400,7 @@ impl StreamCheckService {
         config: &StreamCheckConfig,
     ) -> String {
         match app_type {
-            AppType::Claude | AppType::ClaudeDesktop => {
+            AppType::Claude | AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
                 Self::extract_env_model(provider, "ANTHROPIC_MODEL")
                     .unwrap_or_else(|| config.claude_model.clone())
             }

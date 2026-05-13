@@ -137,6 +137,10 @@ impl McpService {
             AppType::Hermes => {
                 mcp::sync_single_server_to_hermes(&Default::default(), &server.id, &server.server)?;
             }
+            AppType::CodeBuddy | AppType::Lingma => {
+                // CodeBuddy/Lingma MCP sync not yet supported
+                log::debug!("CodeBuddy/Lingma MCP sync not yet supported, skipping");
+            }
         }
         Ok(())
     }
@@ -171,6 +175,10 @@ impl McpService {
             }
             AppType::Hermes => {
                 mcp::remove_server_from_hermes(id)?;
+            }
+            AppType::CodeBuddy | AppType::Lingma => {
+                // CodeBuddy/Lingma MCP sync not yet supported
+                log::debug!("CodeBuddy/Lingma MCP sync not yet supported, skipping remove");
             }
         }
         Ok(())

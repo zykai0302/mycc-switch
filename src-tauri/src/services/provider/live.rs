@@ -349,7 +349,7 @@ fn settings_contain_common_config(app_type: &AppType, settings: &Value, snippet:
             }
             _ => false,
         },
-        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::ClaudeDesktop => false,
+        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => false,
     }
 }
 
@@ -419,7 +419,7 @@ pub(crate) fn remove_common_config_from_settings(
             }
             Ok(result)
         }
-        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::ClaudeDesktop => {
+        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
             Ok(settings.clone())
         }
     }
@@ -476,7 +476,7 @@ fn apply_common_config_to_settings(
             }
             Ok(result)
         }
-        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::ClaudeDesktop => {
+        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
             Ok(settings.clone())
         }
     }
@@ -713,11 +713,11 @@ pub(crate) fn write_live_snapshot(app_type: &AppType, provider: &Provider) -> Re
             let settings = sanitize_claude_settings_for_live(&provider.settings_config);
             write_json_file(&path, &settings)?;
         }
-        AppType::ClaudeDesktop => {
+        AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
             return Err(AppError::localized(
-                "claude_desktop.live.requires_db_context",
-                "Claude Desktop 配置写入需要通过供应商切换流程执行",
-                "Claude Desktop configuration must be written through the provider switch flow",
+                "live.requires_db_context",
+                "该应用配置写入需要通过供应商切换流程执行",
+                "This app configuration must be written through the provider switch flow",
             ));
         }
         AppType::Codex => {
@@ -974,10 +974,10 @@ pub fn read_live_settings(app_type: AppType) -> Result<Value, AppError> {
             }
             read_json_file(&path)
         }
-        AppType::ClaudeDesktop => Err(AppError::localized(
+        AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => Err(AppError::localized(
             "claude_desktop.live.read_unsupported",
-            "Claude Desktop 3P 配置不支持作为通用 live 配置导入，请使用“从 Claude 导入兼容供应商”。",
-            "Claude Desktop 3P configuration cannot be imported as a generic live config. Use 'Import compatible providers from Claude' instead.",
+            "该应用不支持作为通用 live 配置导入",
+            "This app does not support live config import",
         )),
         AppType::Gemini => {
             use crate::gemini_config::{
@@ -1104,11 +1104,11 @@ pub fn import_default_config(state: &AppState, app_type: AppType) -> Result<bool
             let _ = normalize_claude_models_in_value(&mut v);
             v
         }
-        AppType::ClaudeDesktop => {
+        AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
             return Err(AppError::localized(
-                "claude_desktop.import_unsupported",
-                "Claude Desktop 3P 配置不能通过通用导入读取，请使用“从 Claude 导入兼容供应商”。",
-                "Claude Desktop 3P config cannot be imported through the generic import flow. Use 'Import compatible providers from Claude' instead.",
+                "import_unsupported",
+                "该应用不支持通过通用导入读取配置",
+                "This app does not support generic config import",
             ));
         }
         AppType::Gemini => {

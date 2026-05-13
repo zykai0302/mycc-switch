@@ -1740,6 +1740,7 @@ impl ProviderService {
             AppType::OpenCode => Self::extract_opencode_common_config(&provider.settings_config),
             AppType::OpenClaw => Self::extract_openclaw_common_config(&provider.settings_config),
             AppType::Hermes => Ok(String::new()), // Hermes doesn't use common config snippets
+            AppType::CodeBuddy | AppType::Lingma => Ok(String::new()), // CodeBuddy/Lingma don't use common config snippets
         }
     }
 
@@ -1756,6 +1757,7 @@ impl ProviderService {
             AppType::OpenCode => Self::extract_opencode_common_config(settings_config),
             AppType::OpenClaw => Self::extract_openclaw_common_config(settings_config),
             AppType::Hermes => Ok(String::new()), // Hermes doesn't use common config snippets
+            AppType::CodeBuddy | AppType::Lingma => Ok(String::new()), // CodeBuddy/Lingma don't use common config snippets
         }
     }
 
@@ -2141,6 +2143,16 @@ impl ProviderService {
                     ));
                 }
             }
+            AppType::CodeBuddy | AppType::Lingma => {
+                // CodeBuddy/Lingma use Claude-style JSON config
+                if !provider.settings_config.is_object() {
+                    return Err(AppError::localized(
+                        "provider.codebuddy.settings.not_object",
+                        "CodeBuddy 配置必须是 JSON 对象",
+                        "CodeBuddy configuration must be a JSON object",
+                    ));
+                }
+            }
         }
 
         // Validate and clean UsageScript configuration (common for all app types)
@@ -2317,7 +2329,7 @@ impl ProviderService {
 
                 Ok((api_key, base_url))
             }
-            AppType::OpenClaw | AppType::Hermes => {
+            AppType::OpenClaw | AppType::Hermes | AppType::CodeBuddy | AppType::Lingma => {
                 // OpenClaw/Hermes use apiKey and baseUrl directly on the object
                 let api_key = provider
                     .settings_config

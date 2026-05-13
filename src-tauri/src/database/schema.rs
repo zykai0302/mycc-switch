@@ -66,7 +66,8 @@ impl Database {
             description TEXT, homepage TEXT, docs TEXT, tags TEXT NOT NULL DEFAULT '[]',
             enabled_claude BOOLEAN NOT NULL DEFAULT 0, enabled_codex BOOLEAN NOT NULL DEFAULT 0,
             enabled_gemini BOOLEAN NOT NULL DEFAULT 0, enabled_opencode BOOLEAN NOT NULL DEFAULT 0,
-            enabled_hermes BOOLEAN NOT NULL DEFAULT 0
+            enabled_hermes BOOLEAN NOT NULL DEFAULT 0,
+            enabled_codebuddy BOOLEAN NOT NULL DEFAULT 0, enabled_lingma BOOLEAN NOT NULL DEFAULT 0
         )",
             [],
         )
@@ -95,6 +96,8 @@ impl Database {
             enabled_gemini BOOLEAN NOT NULL DEFAULT 0,
             enabled_opencode BOOLEAN NOT NULL DEFAULT 0,
             enabled_hermes BOOLEAN NOT NULL DEFAULT 0,
+            enabled_codebuddy BOOLEAN NOT NULL DEFAULT 0,
+            enabled_lingma BOOLEAN NOT NULL DEFAULT 0,
             installed_at INTEGER NOT NULL DEFAULT 0,
             content_hash TEXT,
             updated_at INTEGER NOT NULL DEFAULT 0
@@ -454,6 +457,11 @@ impl Database {
                         log::info!("迁移数据库从 v10 到 v11（添加 CodeBuddy 凭证表）");
                         Self::migrate_v10_to_v11(conn)?;
                         Self::set_user_version(conn, 11)?;
+                    }
+                    11 => {
+                        log::info!("迁移数据库从 v11 到 v12（添加 CodeBuddy/Lingma 启用列）");
+                        Self::migrate_v11_to_v12(conn)?;
+                        Self::set_user_version(conn, 12)?;
                     }
                     _ => {
                         return Err(AppError::Database(format!(
@@ -1245,6 +1253,21 @@ impl Database {
         .map_err(|e| AppError::Database(format!("创建 codebuddy_credentials 表失败: {e}")))?;
 
         log::info!("v10 -> v11 迁移完成：已添加 CodeBuddy 凭证表");
+        Ok(())
+    }
+
+    fn migrate_v11_to_v12(conn: &Connection) -> Result<(), AppError> {
+        // skills 表添加 enabled_codebuddy 和 enabled_lingma 列
+        if Self::table_exists(conn, "skills")? {
+            Self::add_column_if_missing(conn, "skills", "enabled_codebuddy", "BOOLEAN NOT NULL DEFAULT 0")?;
+            Self::add_column_if_missing(conn, "skills", "enabled_lingma", "BOOLEAN NOT NULL DEFAULT 0")?;
+        }
+
+        // mcp_servers 表添加 enabled_codebuddy 和 enabled_lingma 列
+        Self::add_column_if_missing(conn, "mcp_servers", "enabled_codebuddy", "BOOLEAN NOT NULL DEFAULT 0")?;
+        Self::add_column_if_missing(conn, "mcp_servers", "enabled_lingma", "BOOLEAN NOT NULL DEFAULT 0")?;
+
+        log::info!("v11 -> v12 迁移完成：已添加 CodeBuddy/Lingma 启用列");
         Ok(())
     }
 

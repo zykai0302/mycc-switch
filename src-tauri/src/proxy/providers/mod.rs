@@ -114,7 +114,7 @@ impl ProviderType {
     #[allow(dead_code)]
     pub fn from_app_type_and_config(app_type: &AppType, provider: &Provider) -> Self {
         match app_type {
-            AppType::Claude | AppType::ClaudeDesktop => {
+            AppType::Claude | AppType::ClaudeDesktop | AppType::CodeBuddy | AppType::Lingma => {
                 if get_claude_api_format(provider) == "gemini_native" {
                     let adapter = ClaudeAdapter::new();
                     return match adapter.extract_auth(provider).map(|auth| auth.strategy) {
@@ -247,7 +247,7 @@ pub fn get_adapter(app_type: &AppType) -> Box<dyn ProviderAdapter> {
         AppType::Claude | AppType::ClaudeDesktop => Box::new(ClaudeAdapter::new()),
         AppType::Codex => Box::new(CodexAdapter::new()),
         AppType::Gemini => Box::new(GeminiAdapter::new()),
-        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes => {
+        AppType::OpenCode | AppType::OpenClaw | AppType::Hermes | AppType::CodeBuddy | AppType::Lingma => {
             // These apps don't support proxy, fallback to Codex adapter
             Box::new(CodexAdapter::new())
         }

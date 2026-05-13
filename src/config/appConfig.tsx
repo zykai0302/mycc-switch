@@ -23,6 +23,8 @@ export const APP_IDS: AppId[] = [
   "opencode",
   "openclaw",
   "hermes",
+  "codebuddy",
+  "lingma",
 ];
 
 /** App IDs shown in Skills panels (excludes OpenClaw — it doesn't support Skills) */
@@ -32,6 +34,8 @@ export const SKILLS_APP_IDS: AppId[] = [
   "gemini",
   "opencode",
   "hermes",
+  "codebuddy",
+  "lingma",
 ];
 
 /** App IDs shown in MCP panels (excludes OpenClaw) */
@@ -107,5 +111,35 @@ export const APP_ICON_MAP: Record<AppId, AppConfig> = {
       "bg-violet-500/10 ring-1 ring-violet-500/20 hover:bg-violet-500/20 text-violet-600 dark:text-violet-400",
     badgeClass:
       "bg-violet-500/10 text-violet-700 dark:text-violet-300 hover:bg-violet-500/20 border-0 gap-1.5",
+  },
+  codebuddy: {
+    label: "CodeBuddy",
+    icon: (
+      <ProviderIcon
+        icon="codebuddy"
+        name="CodeBuddy"
+        size={14}
+        showFallback={true}
+      />
+    ),
+    activeClass:
+      "bg-teal-500/10 ring-1 ring-teal-500/20 hover:bg-teal-500/20 text-teal-600 dark:text-teal-400",
+    badgeClass:
+      "bg-teal-500/10 text-teal-700 dark:text-teal-300 hover:bg-teal-500/20 border-0 gap-1.5",
+  },
+  lingma: {
+    label: "Lingma",
+    icon: (
+      <ProviderIcon
+        icon="alibaba"
+        name="Lingma"
+        size={14}
+        showFallback={true}
+      />
+    ),
+    activeClass:
+      "bg-orange-500/10 ring-1 ring-orange-500/20 hover:bg-orange-500/20 text-orange-600 dark:text-orange-400",
+    badgeClass:
+      "bg-orange-500/10 text-orange-700 dark:text-orange-300 hover:bg-orange-500/20 border-0 gap-1.5",
   },
 };

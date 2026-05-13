@@ -121,6 +121,8 @@ const UnifiedSkillsPanel = React.forwardRef<
       opencode: 0,
       openclaw: 0,
       hermes: 0,
+      codebuddy: 0,
+      lingma: 0,
     };
     if (!skills) return counts;
     skills.forEach((skill) => {
@@ -739,17 +741,21 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
     Record<string, ImportSkillSelection["apps"]>
   >(() =>
     Object.fromEntries(
-      skills.map((skill) => [
-        skill.directory,
-        {
-          claude: skill.foundIn.includes("claude"),
-          codex: skill.foundIn.includes("codex"),
-          gemini: skill.foundIn.includes("gemini"),
-          opencode: skill.foundIn.includes("opencode"),
-          openclaw: false,
-          hermes: skill.foundIn.includes("hermes"),
-        },
-      ]),
+      skills.map((skill) => {
+        return [
+          skill.directory,
+          {
+            claude: skill.foundIn.includes("claude"),
+            codex: skill.foundIn.includes("codex"),
+            gemini: skill.foundIn.includes("gemini"),
+            opencode: skill.foundIn.includes("opencode"),
+            openclaw: false,
+            hermes: skill.foundIn.includes("hermes"),
+            codebuddy: skill.foundIn.includes("codebuddy"),
+            lingma: skill.foundIn.includes("lingma"),
+          },
+        ];
+      }),
     ),
   );
 
@@ -817,6 +823,8 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
                           opencode: false,
                           openclaw: false,
                           hermes: false,
+                          codebuddy: false,
+                          lingma: false,
                         }
                       }
                       onToggle={(app, enabled) => {
@@ -830,6 +838,8 @@ const ImportSkillsDialog: React.FC<ImportSkillsDialogProps> = ({
                               opencode: false,
                               openclaw: false,
                               hermes: false,
+                              codebuddy: false,
+                              lingma: false,
                             }),
                             [app]: enabled,
                           },

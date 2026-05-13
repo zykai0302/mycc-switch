@@ -136,6 +136,9 @@ impl ConfigService {
             AppType::Hermes => {
                 // Hermes uses additive mode, no live sync needed
             }
+            AppType::CodeBuddy | AppType::Lingma => {
+                // CodeBuddy/Lingma don't have live config sync
+            }
         }
 
         Ok(())

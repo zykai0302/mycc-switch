@@ -535,6 +535,8 @@ impl SkillService {
                     return Ok(custom.join("skills"));
                 }
             }
+            AppType::CodeBuddy => {}
+            AppType::Lingma => {}
         }
 
         // 默认路径：回退到用户主目录下的标准位置
@@ -552,6 +554,8 @@ impl SkillService {
             AppType::OpenCode => home.join(".config").join("opencode").join("skills"),
             AppType::OpenClaw => home.join(".openclaw").join("skills"),
             AppType::Hermes => crate::hermes_config::get_hermes_dir().join("skills"),
+            AppType::CodeBuddy => home.join(".codebuddy").join("skills"),
+            AppType::Lingma => home.join(".lingma").join("skills"),
         })
     }
 
@@ -793,8 +797,9 @@ impl SkillService {
         let backup_path =
             Self::create_uninstall_backup(&skill)?.map(|path| path.to_string_lossy().to_string());
 
-        // 从所有应用目录删除
-        for app in AppType::all() {
+        // Only remove from app directories that were enabled for this skill.
+        // Unenabled app directories may contain the user's original files.
+        for app in skill.apps.enabled_apps() {
             let _ = Self::remove_from_app(&skill.directory, &app);
         }
 
