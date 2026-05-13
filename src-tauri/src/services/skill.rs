@@ -450,9 +450,17 @@ impl SkillService {
         Self
     }
 
+    /// 获取 GitHub 基础 URL（考虑镜像站配置）
+    fn github_base_url() -> String {
+        crate::settings::get_github_mirror_url()
+            .map(|u| u.trim_end_matches('/').to_string())
+            .unwrap_or_else(|| "https://github.com".to_string())
+    }
+
     /// 构建 Skill 文档 URL（指向仓库中的 SKILL.md 文件）
     fn build_skill_doc_url(owner: &str, repo: &str, branch: &str, doc_path: &str) -> String {
-        format!("https://github.com/{owner}/{repo}/blob/{branch}/{doc_path}")
+        let base = Self::github_base_url();
+        format!("{base}/{owner}/{repo}/blob/{branch}/{doc_path}")
     }
 
     /// 从旧 readme_url 中提取仓库内文档路径，兼容 `blob`/`tree` 两种格式
@@ -2162,10 +2170,11 @@ impl SkillService {
         }
 
         let mut last_error = None;
+        let base = Self::github_base_url();
         for branch in branches {
             let url = format!(
-                "https://github.com/{}/{}/archive/refs/heads/{}.zip",
-                repo.owner, repo.name, branch
+                "{}/{}/{}/archive/refs/heads/{}.zip",
+                base, repo.owner, repo.name, branch
             );
 
             match self.download_and_extract(&url, &temp_path).await {
@@ -2785,7 +2794,7 @@ impl SkillService {
                     repo_name: repo.clone(),
                     repo_branch: "main".to_string(),
                     installs: s.installs,
-                    readme_url: Some(format!("https://github.com/{}/{}", owner, repo)),
+                    readme_url: Some(format!("{}/{}/{}", Self::github_base_url(), owner, repo)),
                 })
             })
             .collect();

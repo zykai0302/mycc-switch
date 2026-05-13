@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Trash2, ExternalLink, Plus } from "lucide-react";
+import { Trash2, ExternalLink, Plus, Globe } from "lucide-react";
 import { settingsApi } from "@/lib/api";
+import { useSettingsQuery, useSaveSettingsMutation } from "@/lib/query";
 import { FullScreenPanel } from "@/components/common/FullScreenPanel";
 import type { DiscoverableSkill, SkillRepo } from "@/lib/api/skills";
 
@@ -24,9 +25,24 @@ export function RepoManagerPanel({
   onClose,
 }: RepoManagerPanelProps) {
   const { t } = useTranslation();
+  const { data: settings } = useSettingsQuery();
+  const saveSettings = useSaveSettingsMutation();
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("");
+  const [mirrorUrl, setMirrorUrl] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (settings?.githubMirrorUrl) {
+      setMirrorUrl(settings.githubMirrorUrl);
+    }
+  }, [settings?.githubMirrorUrl]);
+
+  const handleSaveMirrorUrl = () => {
+    if (!settings) return;
+    const trimmed = mirrorUrl.trim().replace(/\/+$/, "");
+    saveSettings.mutate({ ...settings, githubMirrorUrl: trimmed || undefined });
+  };
 
   const getSkillCount = (repo: SkillRepo) =>
     skills.filter(
@@ -77,7 +93,8 @@ export function RepoManagerPanel({
 
   const handleOpenRepo = async (owner: string, name: string) => {
     try {
-      await settingsApi.openExternal(`https://github.com/${owner}/${name}`);
+      const base = settings?.githubMirrorUrl?.trim().replace(/\/+$/, "") || "https://github.com";
+      await settingsApi.openExternal(`${base}/${owner}/${name}`);
     } catch (error) {
       console.error("Failed to open URL:", error);
     }
@@ -89,6 +106,33 @@ export function RepoManagerPanel({
       title={t("skills.repo.title")}
       onClose={onClose}
     >
+      {/* GitHub 镜像站配置 */}
+      <div className="space-y-4 glass-card rounded-xl p-6">
+        <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+          <Globe className="h-4 w-4" />
+          {t("skills.repo.mirrorTitle", { defaultValue: "GitHub 镜像站" })}
+        </h3>
+        <p className="text-sm text-muted-foreground">
+          {t("skills.repo.mirrorDesc", { defaultValue: "无法直接访问 GitHub 时，配置镜像站 URL 中转访问" })}
+        </p>
+        <div className="flex gap-2">
+          <Input
+            placeholder={t("skills.repo.mirrorPlaceholder", { defaultValue: "如 http://mirrors.example.com/git-proxy/github.com/" })}
+            value={mirrorUrl}
+            onChange={(e) => setMirrorUrl(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            onClick={handleSaveMirrorUrl}
+            variant="outline"
+            type="button"
+            disabled={saveSettings.isPending}
+          >
+            {t("common.save", { defaultValue: "保存" })}
+          </Button>
+        </div>
+      </div>
+
       {/* 添加仓库表单 */}
       <div className="space-y-4 glass-card rounded-xl p-6">
         <h3 className="text-base font-semibold text-foreground">

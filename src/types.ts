@@ -327,6 +327,8 @@ export interface Settings {
   skillSyncMethod?: SkillSyncMethod;
   // Skill 存储位置：cc_switch（默认）或 unified（~/.agents/skills/）
   skillStorageLocation?: SkillStorageLocation;
+  // GitHub 镜像站 URL（如 http://mirrors.uniview.com/git-proxy/github.com/）
+  githubMirrorUrl?: string;
 
   // ===== WebDAV v2 同步设置 =====
   webdavSync?: WebDavSyncSettings;

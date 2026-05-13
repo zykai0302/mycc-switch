@@ -284,6 +284,10 @@ pub struct AppSettings {
     /// Skill 存储位置：cc_switch（默认）或 unified（~/.agents/skills/）
     #[serde(default)]
     pub skill_storage_location: SkillStorageLocation,
+    /// GitHub 镜像站 URL（如 http://mirrors.uniview.com/git-proxy/github.com/）
+    /// 配置后，所有 GitHub 请求将通过此镜像站中转
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub github_mirror_url: Option<String>,
 
     // ===== WebDAV 同步设置 =====
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -354,6 +358,7 @@ impl Default for AppSettings {
             current_provider_codebuddy: None,
             skill_sync_method: SyncMethod::default(),
             skill_storage_location: SkillStorageLocation::default(),
+            github_mirror_url: None,
             webdav_sync: None,
             webdav_backup: None,
             backup_interval_hours: None,
@@ -422,6 +427,12 @@ impl AppSettings {
             .map(|s| s.trim())
             .filter(|s| matches!(*s, "en" | "zh" | "ja"))
             .map(|s| s.to_string());
+
+        self.github_mirror_url = self
+            .github_mirror_url
+            .as_ref()
+            .map(|s| s.trim().trim_end_matches('/').to_string())
+            .filter(|s| !s.is_empty());
 
         if let Some(sync) = &mut self.webdav_sync {
             sync.normalize();
@@ -730,6 +741,16 @@ pub fn set_skill_storage_location(location: SkillStorageLocation) -> Result<(), 
     mutate_settings(|s| {
         s.skill_storage_location = location;
     })
+}
+
+// ===== GitHub 镜像站设置 =====
+
+/// 获取 GitHub 镜像站 URL
+pub fn get_github_mirror_url() -> Option<String> {
+    settings_store()
+        .read()
+        .ok()
+        .and_then(|s| s.github_mirror_url.clone())
 }
 
 // ===== 备份策略管理函数 =====
