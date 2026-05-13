@@ -38,6 +38,7 @@ export function RepoManager({
   const [repoUrl, setRepoUrl] = useState("");
   const [branch, setBranch] = useState("");
   const [mirrorUrl, setMirrorUrl] = useState("");
+  const [skillsShMirrorUrl, setSkillsShMirrorUrl] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -46,10 +47,22 @@ export function RepoManager({
     }
   }, [settings?.githubMirrorUrl]);
 
+  useEffect(() => {
+    if (settings?.skillsShMirrorUrl) {
+      setSkillsShMirrorUrl(settings.skillsShMirrorUrl);
+    }
+  }, [settings?.skillsShMirrorUrl]);
+
   const handleSaveMirrorUrl = () => {
     if (!settings) return;
     const trimmed = mirrorUrl.trim().replace(/\/+$/, "");
     saveSettings.mutate({ ...settings, githubMirrorUrl: trimmed || undefined });
+  };
+
+  const handleSaveSkillsShMirrorUrl = () => {
+    if (!settings) return;
+    const trimmed = skillsShMirrorUrl.trim().replace(/\/+$/, "");
+    saveSettings.mutate({ ...settings, skillsShMirrorUrl: trimmed || undefined });
   };
 
   const getSkillCount = (repo: SkillRepo) =>
@@ -169,6 +182,34 @@ export function RepoManager({
               />
               <Button
                 onClick={handleSaveMirrorUrl}
+                variant="outline"
+                size="sm"
+                type="button"
+                disabled={saveSettings.isPending}
+              >
+                {t("common.save", { defaultValue: "保存" })}
+              </Button>
+            </div>
+          </div>
+
+          {/* skills.sh 镜像站配置 */}
+          <div className="space-y-2 mb-5">
+            <Label className="text-sm font-medium flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5" />
+              {t("skills.repo.skillsShMirrorTitle", { defaultValue: "skills.sh 镜像站" })}
+            </Label>
+            <p className="text-xs text-muted-foreground">
+              {t("skills.repo.skillsShMirrorDesc", { defaultValue: "无法直接访问 skills.sh 时，配置镜像站 URL 中转搜索" })}
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder={t("skills.repo.skillsShMirrorPlaceholder", { defaultValue: "如 http://mirrors.example.com/git-proxy/skills.sh/" })}
+                value={skillsShMirrorUrl}
+                onChange={(e) => setSkillsShMirrorUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSaveSkillsShMirrorUrl}
                 variant="outline"
                 size="sm"
                 type="button"

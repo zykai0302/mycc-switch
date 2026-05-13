@@ -329,6 +329,8 @@ export interface Settings {
   skillStorageLocation?: SkillStorageLocation;
   // GitHub 镜像站 URL（如 http://mirrors.uniview.com/git-proxy/github.com/）
   githubMirrorUrl?: string;
+  // skills.sh 镜像站 URL（如 http://mirrors.uniview.com/git-proxy/skills.sh/）
+  skillsShMirrorUrl?: string;
 
   // ===== WebDAV v2 同步设置 =====
   webdavSync?: WebDavSyncSettings;

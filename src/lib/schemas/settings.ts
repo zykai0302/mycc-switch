@@ -34,6 +34,7 @@ export const settingsSchema = z.object({
   skillSyncMethod: z.enum(["auto", "symlink", "copy"]).optional(),
   skillStorageLocation: z.enum(["cc_switch", "unified"]).optional(),
   githubMirrorUrl: z.string().trim().optional().or(z.literal("")),
+  skillsShMirrorUrl: z.string().trim().optional().or(z.literal("")),
 
   // WebDAV v2 同步设置（通过专用命令保存，schema 仅用于读取）
   webdavSync: z

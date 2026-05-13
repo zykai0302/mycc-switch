@@ -2872,8 +2872,12 @@ impl SkillService {
     ) -> Result<SkillsShSearchResult> {
         let client = crate::proxy::http_client::get();
 
+        let base = crate::settings::get_skills_sh_mirror_url()
+            .map(|u| u.trim_end_matches('/').to_string())
+            .unwrap_or_else(|| "https://skills.sh".to_string());
+
         let url = url::Url::parse_with_params(
-            "https://skills.sh/api/search",
+            &format!("{}/api/search", base),
             &[
                 ("q", query),
                 ("limit", &limit.to_string()),

@@ -288,6 +288,10 @@ pub struct AppSettings {
     /// 配置后，所有 GitHub 请求将通过此镜像站中转
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub github_mirror_url: Option<String>,
+    /// skills.sh 镜像站 URL（如 http://mirrors.uniview.com/git-proxy/skills.sh/）
+    /// 配置后，skills.sh 搜索请求将通过此镜像站中转
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skills_sh_mirror_url: Option<String>,
 
     // ===== WebDAV 同步设置 =====
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -359,6 +363,7 @@ impl Default for AppSettings {
             skill_sync_method: SyncMethod::default(),
             skill_storage_location: SkillStorageLocation::default(),
             github_mirror_url: None,
+            skills_sh_mirror_url: None,
             webdav_sync: None,
             webdav_backup: None,
             backup_interval_hours: None,
@@ -430,6 +435,12 @@ impl AppSettings {
 
         self.github_mirror_url = self
             .github_mirror_url
+            .as_ref()
+            .map(|s| s.trim().trim_end_matches('/').to_string())
+            .filter(|s| !s.is_empty());
+
+        self.skills_sh_mirror_url = self
+            .skills_sh_mirror_url
             .as_ref()
             .map(|s| s.trim().trim_end_matches('/').to_string())
             .filter(|s| !s.is_empty());
@@ -751,6 +762,14 @@ pub fn get_github_mirror_url() -> Option<String> {
         .read()
         .ok()
         .and_then(|s| s.github_mirror_url.clone())
+}
+
+/// 获取 skills.sh 镜像站 URL
+pub fn get_skills_sh_mirror_url() -> Option<String> {
+    settings_store()
+        .read()
+        .ok()
+        .and_then(|s| s.skills_sh_mirror_url.clone())
 }
 
 // ===== 备份策略管理函数 =====
